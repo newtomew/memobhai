@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAuth } from '../../_lib/auth';
-import { prisma } from '../../_lib/prisma';
-import { supabaseAdmin } from '../../_lib/supabase';
-import { apiHandler } from '../../_lib/handler';
+import { resolveAuth } from '../_lib/auth';
+import { prisma } from '../_lib/prisma';
+import { supabaseAdmin } from '../_lib/supabase';
+import { apiHandler } from '../_lib/handler';
 import { z } from 'zod';
 
 const createUserSchema = z.object({

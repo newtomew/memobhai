@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAuth } from '../../_lib/auth';
-import { prisma } from '../../_lib/prisma';
-import { apiHandler } from '../../_lib/handler';
+import { resolveAuth } from '../_lib/auth';
+import { prisma } from '../_lib/prisma';
+import { apiHandler } from '../_lib/handler';
 import { z } from 'zod';
 
 const createDeptSchema = z.object({
