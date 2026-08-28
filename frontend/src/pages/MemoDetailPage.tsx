@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { commentsAPI, memosAPI, workflowAPI, attachmentsAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
 import {
@@ -174,8 +174,6 @@ export default function MemoDetailPage() {
     </div>
   );
   if (!memo) return <p className="text-red-600">{error}</p>;
-
-  const isAuthor = memo.authorId === userId;
 
   return (
     <div className="max-w-4xl mx-auto">

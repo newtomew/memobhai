@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
-import { Plus, X, Edit2, Check } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 type Tab = 'users' | 'departments' | 'categories' | 'reports';
 

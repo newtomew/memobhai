@@ -1,17 +1,25 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { supabase } from '../lib/supabase';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
     baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
-// Add token to requests
-api.interceptors.request.use((config) => {
+// Add token to requests — uses Supabase session token
+api.interceptors.request.use(async (config) => {
     const { token } = useAuthStore.getState();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    }
+    else {
+        // Fallback: try to get session from Supabase
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.access_token) {
+            config.headers.Authorization = `Bearer ${data.session.access_token}`;
+        }
     }
     return config;
 });
@@ -27,6 +35,7 @@ api.interceptors.response.use((response) => response, (error) => {
 export const authAPI = {
     register: (data) => api.post('/auth/register', data),
     login: (email, password) => api.post('/auth/login', { email, password }),
+    me: () => api.get('/auth/me'),
     logout: () => {
         useAuthStore.getState().clearAuth();
     },
@@ -55,13 +64,24 @@ export const commentsAPI = {
 // Attachments endpoints
 export const attachmentsAPI = {
     upload: (memoId, file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        return api.post(`/attachments/${memoId}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                api
+                    .post(`/attachments/${memoId}`, {
+                    fileName: file.name,
+                    fileData: base64,
+                    mimeType: file.type,
+                })
+                    .then(resolve)
+                    .catch(reject);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
     },
-    download: (attachmentId) => api.get(`/attachments/${attachmentId}`),
+    download: (attachmentId) => api.get(`/attachments/download/${attachmentId}`),
 };
 // Notifications endpoints
 export const notificationsAPI = {
@@ -73,10 +93,16 @@ export const adminAPI = {
     getOrganization: () => api.get('/admin/organization'),
     createUser: (data) => api.post('/admin/users', data),
     listUsers: () => api.get('/admin/users'),
-    updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
+    updateUser: (id, data) => api.put(`/admin/users?id=${id}`, data),
+    getDepartments: () => api.get('/admin/departments'),
     createDepartment: (data) => api.post('/admin/departments', data),
     getCategories: () => api.get('/admin/categories'),
+    createCategory: (data) => api.post('/admin/categories', data),
     getDashboard: () => api.get('/admin/dashboard'),
+};
+// Profile / password change
+export const profileAPI = {
+    changePassword: (newPassword) => api.post('/auth/change-password', { newPassword }),
 };
 // Search endpoints
 export const searchAPI = {
