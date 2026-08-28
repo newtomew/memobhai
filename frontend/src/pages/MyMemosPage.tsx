@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { memosAPI } from '../services/api';
+import { statusBadgeClass, statusLabel } from '../lib/statusColors';
+import { Send, Plus } from 'lucide-react';
 
 export default function MyMemosPage() {
   const [memos, setMemos] = useState<any[]>([]);
@@ -16,47 +18,54 @@ export default function MyMemosPage() {
   }, []);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">My Memos</h1>
-        <Link
-          to="/memos/create"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Create Memo
+    <div className="slide-up">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-charcoal rounded-2xl flex items-center justify-center">
+            <Send size={18} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-charcoal">My Memos</h1>
+            <p className="text-sm text-gray-400">{memos.length} memo{memos.length !== 1 ? 's' : ''} sent</p>
+          </div>
+        </div>
+        <Link to="/memos/create" className="btn-primary">
+          <Plus size={16} /> Create Memo
         </Link>
       </div>
-      <div className="bg-white rounded-lg shadow p-6">
-        {loading && <p className="text-gray-500">Loading...</p>}
-        {error && <p className="text-red-600">{error}</p>}
+
+      <div className="card">
+        {loading && <p className="text-gray-400 text-sm py-8 text-center">Loading...</p>}
+        {error && <p className="text-red-500 text-sm py-4">{error}</p>}
         {!loading && !error && memos.length === 0 && (
-          <p className="text-gray-500">No memos yet</p>
+          <div className="py-12 text-center">
+            <p className="text-gray-400 text-sm mb-4">No memos yet</p>
+            <Link to="/memos/create" className="btn-primary">Create your first memo</Link>
+          </div>
         )}
         {memos.length > 0 && (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b text-sm text-gray-500">
-                <th className="py-2">Number</th>
-                <th className="py-2">Subject</th>
-                <th className="py-2">Department</th>
-                <th className="py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="hidden md:grid grid-cols-[1fr_2fr_1fr_1fr] gap-4 px-2 pb-3 text-xs font-medium text-gray-400 uppercase tracking-wide">
+              <span>Number</span>
+              <span>Subject</span>
+              <span>Department</span>
+              <span>Status</span>
+            </div>
+            <ul className="space-y-1">
               {memos.map((memo) => (
-                <tr key={memo.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3">
-                    <Link to={`/memos/${memo.id}`} className="text-blue-600 hover:underline">
-                      {memo.memoNumber}
-                    </Link>
-                  </td>
-                  <td>{memo.subject}</td>
-                  <td>{memo.department?.name || '—'}</td>
-                  <td className="capitalize">{memo.status.replaceAll('_', ' ')}</td>
-                </tr>
+                <li key={memo.id}>
+                  <Link to={`/memos/${memo.id}`} className="table-row grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr_1fr] gap-2 md:gap-4">
+                    <span className="text-sm font-mono text-accent-dark font-medium self-center">{memo.memoNumber}</span>
+                    <span className="text-sm font-medium text-charcoal self-center truncate">{memo.subject}</span>
+                    <span className="text-sm text-gray-500 self-center hidden md:block">{memo.department?.name || '—'}</span>
+                    <span className={`self-center hidden md:inline-flex ${statusBadgeClass[memo.status] || 'badge-neutral'}`}>
+                      {statusLabel(memo.status)}
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </>
         )}
       </div>
     </div>

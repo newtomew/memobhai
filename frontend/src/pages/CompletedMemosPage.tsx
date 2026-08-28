@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { memosAPI } from '../services/api';
+import { statusBadgeClass, statusLabel } from '../lib/statusColors';
 import { CheckCircle } from 'lucide-react';
 
 export default function CompletedMemosPage() {
@@ -19,60 +20,53 @@ export default function CompletedMemosPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const statusColor = (s: string) => {
-    if (s === 'approved') return 'bg-green-100 text-green-700';
-    if (s === 'rejected') return 'bg-red-100 text-red-700';
-    return 'bg-gray-100 text-gray-700';
-  };
-
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-8">
-        <CheckCircle className="text-green-500" size={28} />
-        <h1 className="text-3xl font-bold">Completed Memos</h1>
+    <div className="slide-up">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center">
+          <CheckCircle size={20} className="text-emerald-500" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-charcoal">Completed Memos</h1>
+          <p className="text-sm text-gray-400">{memos.length} finalized memo{memos.length !== 1 ? 's' : ''}</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        {loading && <p className="text-gray-500">Loading...</p>}
-        {error && <p className="text-red-600">{error}</p>}
+      <div className="card">
+        {loading && <p className="text-gray-400 text-sm py-8 text-center">Loading...</p>}
+        {error && <p className="text-red-500 text-sm py-4">{error}</p>}
         {!loading && !error && memos.length === 0 && (
-          <p className="text-gray-500">No completed memos yet.</p>
+          <p className="text-gray-400 text-sm py-12 text-center">No completed memos yet.</p>
         )}
         {memos.length > 0 && (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b text-gray-500">
-                <th className="py-2 pr-4">Number</th>
-                <th className="py-2 pr-4">Subject</th>
-                <th className="py-2 pr-4">Department</th>
-                <th className="py-2 pr-4">Priority</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2">Date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="hidden md:grid grid-cols-[1fr_2fr_1fr_1fr_1fr_1fr] gap-4 px-2 pb-3 text-xs font-medium text-gray-400 uppercase tracking-wide">
+              <span>Number</span>
+              <span>Subject</span>
+              <span>Department</span>
+              <span>Priority</span>
+              <span>Status</span>
+              <span>Date</span>
+            </div>
+            <ul className="space-y-1">
               {memos.map((memo) => (
-                <tr key={memo.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 pr-4">
-                    <Link to={`/memos/${memo.id}`} className="text-blue-600 hover:underline font-medium">
-                      {memo.memoNumber}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4">{memo.subject}</td>
-                  <td className="py-3 pr-4">{memo.department?.name || '—'}</td>
-                  <td className="py-3 pr-4 capitalize">{memo.priority}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusColor(memo.status)}`}>
-                      {memo.status}
+                <li key={memo.id}>
+                  <Link to={`/memos/${memo.id}`} className="table-row grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr_1fr_1fr_1fr] gap-2 md:gap-4">
+                    <span className="text-sm font-mono text-accent-dark font-medium self-center">{memo.memoNumber}</span>
+                    <span className="text-sm font-medium text-charcoal self-center truncate">{memo.subject}</span>
+                    <span className="text-sm text-gray-500 self-center hidden md:block">{memo.department?.name || '—'}</span>
+                    <span className="text-sm capitalize text-gray-500 self-center hidden md:block">{memo.priority}</span>
+                    <span className={`self-center hidden md:inline-flex ${statusBadgeClass[memo.status] || 'badge-neutral'}`}>
+                      {statusLabel(memo.status)}
                     </span>
-                  </td>
-                  <td className="py-3 text-gray-500">
-                    {memo.createdAt ? new Date(memo.createdAt).toLocaleDateString() : '—'}
-                  </td>
-                </tr>
+                    <span className="text-sm text-gray-400 self-center hidden md:block">
+                      {memo.createdAt ? new Date(memo.createdAt).toLocaleDateString() : '—'}
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </>
         )}
       </div>
     </div>

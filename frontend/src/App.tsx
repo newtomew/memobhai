@@ -24,16 +24,19 @@ export default function App() {
 
   if (!isSupabaseConfigured) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="max-w-lg bg-white rounded-lg shadow p-8 text-center">
-          <h1 className="text-xl font-bold text-red-600 mb-3">Configuration Required</h1>
-          <p className="text-gray-600 mb-4">
+      <div className="min-h-screen flex items-center justify-center bg-canvas-pattern p-6">
+        <div className="max-w-lg card shadow-card-hover text-center">
+          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500 font-bold text-lg">!</span>
+          </div>
+          <h1 className="text-xl font-bold text-charcoal mb-3">Configuration Required</h1>
+          <p className="text-gray-500 mb-4 text-sm">
             Supabase environment variables are missing. Add{' '}
-            <code className="bg-gray-100 px-1 rounded">VITE_SUPABASE_URL</code> and{' '}
-            <code className="bg-gray-100 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> in Vercel,
+            <code className="bg-surface-muted px-2 py-0.5 rounded-lg text-xs">VITE_SUPABASE_URL</code> and{' '}
+            <code className="bg-surface-muted px-2 py-0.5 rounded-lg text-xs">VITE_SUPABASE_ANON_KEY</code> in Vercel,
             then redeploy.
           </p>
-          <p className="text-sm text-gray-400">The app works locally because your .env.local is set.</p>
+          <p className="text-xs text-gray-400">The app works locally because your .env.local is set.</p>
         </div>
       </div>
     );

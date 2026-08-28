@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authAPI } from '../services/api';
+import AuthLayout from '../components/AuthLayout';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -18,23 +19,14 @@ export default function RegisterPage() {
   const { setAuth } = useAuthStore();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
+    if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
     setLoading(true);
-
     try {
       const response = await authAPI.register({
         organizationName: formData.organizationName,
@@ -54,118 +46,43 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
-        <h1 className="text-3xl font-bold text-center mb-2">Memo System</h1>
-        <p className="text-center text-gray-600 mb-8">Create your organization</p>
+    <AuthLayout title="Create Organization" subtitle="Set up your MemoBhai workspace">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 text-red-500 px-4 py-3 rounded-2xl text-sm">{error}</div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Organization Name
-            </label>
+        {[
+          { name: 'organizationName', label: 'Organization Name', placeholder: 'Acme Corporation' },
+          { name: 'organizationSlug', label: 'Organization Slug', placeholder: 'acme-corp' },
+          { name: 'name', label: 'Full Name', placeholder: 'John Doe' },
+          { name: 'email', label: 'Email', placeholder: 'admin@acme.com', type: 'email' },
+          { name: 'password', label: 'Password', placeholder: 'At least 8 characters', type: 'password' },
+          { name: 'confirmPassword', label: 'Confirm Password', placeholder: 'Confirm password', type: 'password' },
+        ].map(({ name, label, placeholder, type = 'text' }) => (
+          <div key={name}>
+            <label className="block text-sm font-medium text-gray-500 mb-1.5">{label}</label>
             <input
-              type="text"
-              name="organizationName"
-              value={formData.organizationName}
+              type={type}
+              name={name}
+              value={(formData as any)[name]}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Acme Corporation"
+              className="input-field"
+              placeholder={placeholder}
             />
           </div>
+        ))}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Organization Slug
-            </label>
-            <input
-              type="text"
-              name="organizationSlug"
-              value={formData.organizationSlug}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="acme-corp"
-            />
-          </div>
+        <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+          {loading ? 'Creating account...' : 'Create Account'}
+        </button>
+      </form>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Full Name</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="John Doe"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="admin@acme.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="At least 8 characters"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Confirm password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="text-center text-gray-600 mt-6">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 hover:underline">
-            Login
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="text-center text-gray-400 text-sm mt-6">
+        Already have an account?{' '}
+        <Link to="/login" className="text-accent-dark font-medium hover:underline">Sign in</Link>
+      </p>
+    </AuthLayout>
   );
 }

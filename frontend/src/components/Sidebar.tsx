@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import clsx from 'clsx';
 import {
   LayoutDashboard,
   Inbox,
@@ -9,34 +10,36 @@ import {
   Search,
   User,
   Settings,
+  LogOut,
 } from 'lucide-react';
-import clsx from 'clsx';
+
+const menuItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', admin: false },
+  { icon: Inbox, label: 'Inbox', href: '/inbox', admin: false },
+  { icon: Send, label: 'My Memos', href: '/my-memos', admin: false },
+  { icon: FilePlus, label: 'Create', href: '/memos/create', admin: false },
+  { icon: CheckCircle, label: 'Completed', href: '/completed', admin: false },
+  { icon: Search, label: 'Search', href: '/search', admin: false },
+  { icon: User, label: 'Profile', href: '/profile', admin: false },
+  { icon: Settings, label: 'Admin', href: '/admin', admin: true },
+];
 
 export default function Sidebar() {
-  const { isAdmin } = useAuthStore();
+  const { isAdmin, clearAuth } = useAuthStore();
   const location = useLocation();
-
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', admin: false },
-    { icon: Inbox, label: 'Inbox', href: '/inbox', admin: false },
-    { icon: Send, label: 'My Memos', href: '/my-memos', admin: false },
-    { icon: FilePlus, label: 'Create Memo', href: '/memos/create', admin: false },
-    { icon: CheckCircle, label: 'Completed', href: '/completed', admin: false },
-    { icon: Search, label: 'Search', href: '/search', admin: false },
-    { icon: User, label: 'Profile', href: '/profile', admin: false },
-    { icon: Settings, label: 'Admin', href: '/admin', admin: true },
-  ];
-
   const filteredItems = menuItems.filter((item) => !item.admin || isAdmin());
 
   return (
-    <div className="w-64 bg-gray-900 text-white flex flex-col">
-      <div className="p-6 border-b border-gray-700">
-        <h2 className="text-2xl font-bold">MemoBhai</h2>
-        <p className="text-xs text-gray-400 mt-1">Memo Management</p>
-      </div>
+    <aside className="w-[72px] flex-shrink-0 bg-charcoal rounded-4xl flex flex-col items-center py-6 shadow-sidebar">
+      {/* Logo */}
+      <Link to="/dashboard" className="mb-8 group">
+        <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform">
+          <span className="text-charcoal font-extrabold text-lg leading-none">M</span>
+        </div>
+      </Link>
 
-      <nav className="flex-1 p-4 space-y-1">
+      {/* Nav icons */}
+      <nav className="flex-1 flex flex-col items-center gap-2">
         {filteredItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -47,23 +50,31 @@ export default function Sidebar() {
             <Link
               key={item.href}
               to={item.href}
+              title={item.label}
               className={clsx(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition',
+                'w-11 h-11 flex items-center justify-center rounded-2xl transition-all duration-200 group relative',
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800',
+                  ? 'bg-accent text-charcoal shadow-md'
+                  : 'text-gray-400 hover:bg-charcoal-light hover:text-white',
               )}
             >
-              <Icon size={18} />
-              <span className="text-sm">{item.label}</span>
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="absolute left-full ml-3 px-2.5 py-1 bg-charcoal text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity shadow-lg">
+                {item.label}
+              </span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-700">
-        <p className="text-xs text-gray-400">© 2026 MemoBhai</p>
-      </div>
-    </div>
+      {/* Logout */}
+      <button
+        onClick={() => { clearAuth(); window.location.href = '/login'; }}
+        title="Logout"
+        className="w-11 h-11 flex items-center justify-center rounded-2xl text-gray-400 hover:bg-charcoal-light hover:text-red-400 transition-all duration-200 mt-4"
+      >
+        <LogOut size={20} />
+      </button>
+    </aside>
   );
 }
