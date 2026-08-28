@@ -100,15 +100,26 @@ export const commentsAPI = {
 // Attachments endpoints
 export const attachmentsAPI = {
   upload: (memoId: string, file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post(`/attachments/${memoId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    return new Promise<any>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        api
+          .post(`/attachments/${memoId}`, {
+            fileName: file.name,
+            fileData: base64,
+            mimeType: file.type,
+          })
+          .then(resolve)
+          .catch(reject);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
   },
 
   download: (attachmentId: string) =>
-    api.get(`/attachments/${attachmentId}`),
+    api.get(`/attachments/download/${attachmentId}`),
 };
 
 // Notifications endpoints
@@ -128,11 +139,21 @@ export const adminAPI = {
 
   updateUser: (id: string, data: any) => api.put(`/admin/users?id=${id}`, data),
 
+  getDepartments: () => api.get('/admin/departments'),
+
   createDepartment: (data: any) => api.post('/admin/departments', data),
 
   getCategories: () => api.get('/admin/categories'),
 
+  createCategory: (data: any) => api.post('/admin/categories', data),
+
   getDashboard: () => api.get('/admin/dashboard'),
+};
+
+// Profile / password change
+export const profileAPI = {
+  changePassword: (newPassword: string) =>
+    api.post('/auth/change-password', { newPassword }),
 };
 
 // Search endpoints

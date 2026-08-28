@@ -12,15 +12,18 @@ const createDeptSchema = z.object({
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const ctx = await resolveAuth(req);
   if (!ctx) return res.status(401).json({ error: 'Unauthorized' });
-  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'GET') {
+    // Any authenticated org member can list departments (needed for memo creation)
     const departments = await prisma.department.findMany({
       where: { organizationId: ctx.organizationId },
       include: { _count: { select: { users: true, memos: true } } },
     });
     return res.json({ departments });
   }
+
+  // Write operations require admin
+  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'POST') {
     const data = createDeptSchema.parse(req.body);

@@ -17,9 +17,9 @@ const createUserSchema = z.object({
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const ctx = await resolveAuth(req);
   if (!ctx) return res.status(401).json({ error: 'Unauthorized' });
-  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'GET') {
+    // Any authenticated org member can list users (needed for workflow participant selection)
     const users = await prisma.user.findMany({
       where: { organizationId: ctx.organizationId },
       include: { department: { select: { name: true } } },
@@ -27,6 +27,9 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     });
     return res.json({ users });
   }
+
+  // All write operations require admin
+  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'POST') {
     const data = createUserSchema.parse(req.body);

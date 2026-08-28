@@ -1,17 +1,42 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { commentsAPI, memosAPI, workflowAPI } from '../services/api';
+import { commentsAPI, memosAPI, workflowAPI, attachmentsAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
+import {
+  ArrowLeft, Download, Upload, FileText, CheckCircle, XCircle,
+  Clock, AlertCircle, X,
+} from 'lucide-react';
+import jsPDF from 'jspdf';
+
+const statusColor: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700',
+  submitted: 'bg-blue-100 text-blue-700',
+  pending_review: 'bg-yellow-100 text-yellow-700',
+  pending_approval: 'bg-orange-100 text-orange-700',
+  changes_requested: 'bg-amber-100 text-amber-700',
+  rejected: 'bg-red-100 text-red-700',
+  approved: 'bg-green-100 text-green-700',
+  cancelled: 'bg-gray-100 text-gray-500',
+};
+
+const priorityColor: Record<string, string> = {
+  normal: 'text-gray-500',
+  high: 'text-orange-500',
+  urgent: 'text-red-600 font-semibold',
+};
 
 export default function MemoDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userId } = useAuthStore((s) => ({ userId: s.user?.id }));
+  const { user } = useAuthStore();
+  const userId = user?.id;
+
   const [memo, setMemo] = useState<any>(null);
   const [comment, setComment] = useState('');
   const [actionComment, setActionComment] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -41,81 +66,267 @@ export default function MemoDetailPage() {
     }
   };
 
-  if (!memo && !error) return <p className="text-gray-500">Memo details loading...</p>;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setUploading(true);
+    try {
+      await attachmentsAPI.upload(id, file);
+      await load();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (attachment: any) => {
+    try {
+      const res = await attachmentsAPI.download(attachment.id);
+      const signedUrl = res.data.url;
+      if (signedUrl) {
+        window.open(signedUrl, '_blank');
+      }
+    } catch {
+      setError('Failed to download file');
+    }
+  };
+
+  const exportPDF = () => {
+    if (!memo) return;
+    const doc = new jsPDF();
+    let y = 20;
+
+    const line = (text: string, indent = 0, bold = false) => {
+      if (bold) doc.setFont('helvetica', 'bold');
+      else doc.setFont('helvetica', 'normal');
+      doc.setFontSize(bold ? 12 : 10);
+      const lines = doc.splitTextToSize(text, 170 - indent);
+      doc.text(lines, 20 + indent, y);
+      y += lines.length * 6;
+    };
+
+    const spacer = (n = 4) => { y += n; };
+
+    // Header
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text('MEMO', 20, 20);
+    doc.setFontSize(10);
+    doc.text(`Memo No: ${memo.memoNumber}`, 120, 20);
+    doc.setTextColor(0, 0, 0);
+    y = 40;
+
+    line(`Subject: ${memo.subject}`, 0, true);
+    spacer();
+    line(`Author: ${memo.author?.name || '—'}`, 0);
+    line(`Department: ${memo.department?.name || '—'}`, 0);
+    line(`Category: ${memo.category?.name || '—'}`, 0);
+    line(`Priority: ${memo.priority?.toUpperCase()}`, 0);
+    line(`Status: ${memo.status?.replace(/_/g, ' ').toUpperCase()}`, 0);
+    line(`Date: ${memo.createdAt ? new Date(memo.createdAt).toLocaleDateString() : '—'}`, 0);
+    spacer(6);
+
+    line('MEMO BODY', 0, true);
+    spacer(2);
+    line(memo.body || '', 0);
+    spacer(6);
+
+    // Workflow
+    if (memo.workflowSteps?.length > 0) {
+      line('WORKFLOW', 0, true);
+      spacer(2);
+      memo.workflowSteps.forEach((step: any, i: number) => {
+        line(`${i + 1}. ${step.user?.name || '—'} — ${step.status.replace(/_/g, ' ')}`, 4);
+      });
+      spacer(6);
+    }
+
+    // Approvals
+    if (memo.approvals?.length > 0) {
+      line('APPROVAL HISTORY', 0, true);
+      spacer(2);
+      memo.approvals.forEach((a: any) => {
+        line(`${a.user?.name || '—'} — ${a.action?.replace(/_/g, ' ')} — ${new Date(a.createdAt).toLocaleString()}`, 4);
+        if (a.comment) line(`Comment: ${a.comment}`, 8);
+      });
+      spacer(6);
+    }
+
+    // Comments
+    if (memo.comments?.length > 0) {
+      line('COMMENTS', 0, true);
+      spacer(2);
+      memo.comments.forEach((c: any) => {
+        line(`${c.author?.name || '—'}: ${c.text}`, 4);
+      });
+    }
+
+    doc.save(`${memo.memoNumber}.pdf`);
+  };
+
+  if (!memo && !error) return (
+    <div className="flex items-center justify-center h-48">
+      <p className="text-gray-400">Loading memo...</p>
+    </div>
+  );
   if (!memo) return <p className="text-red-600">{error}</p>;
 
+  const isAuthor = memo.authorId === userId;
+
   return (
-    <div>
-      <div className="flex justify-between items-start mb-8">
+    <div className="max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6">
         <div>
-          <p className="text-sm text-gray-500">{memo.memoNumber}</p>
-          <h1 className="text-3xl font-bold">{memo.subject}</h1>
-          <p className="text-gray-500 mt-1 capitalize">
-            {memo.status.replaceAll('_', ' ')} · {memo.priority} · {memo.department?.name}
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600">
+              <ArrowLeft size={18} />
+            </button>
+            <span className="text-sm text-gray-500 font-mono">{memo.memoNumber}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusColor[memo.status] || 'bg-gray-100 text-gray-600'}`}>
+              {memo.status.replace(/_/g, ' ')}
+            </span>
+            <span className={`text-xs font-medium capitalize ${priorityColor[memo.priority] || ''}`}>
+              {memo.priority === 'urgent' && <AlertCircle size={12} className="inline mr-1" />}
+              {memo.priority}
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold">{memo.subject}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {memo.author?.name} · {memo.department?.name} · {memo.category?.name || 'No category'}
+            {memo.createdAt && ` · ${new Date(memo.createdAt).toLocaleDateString()}`}
           </p>
         </div>
-        <Link to="/inbox" className="text-blue-600 hover:underline">
-          Back
-        </Link>
+        <button
+          onClick={exportPDF}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+        >
+          <Download size={16} />
+          Export PDF
+        </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-6">
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-6 flex justify-between">
           {error}
+          <button onClick={() => setError('')}><X size={16} /></button>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6 whitespace-pre-wrap">{memo.body}</div>
+      {/* Body */}
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Memo Body</h2>
+        <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">{memo.body}</div>
+      </div>
 
+      {/* Workflow steps */}
+      {memo.workflowSteps?.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Workflow</h2>
+          <div className="flex flex-col gap-2">
+            {memo.workflowSteps.map((step: any, i: number) => (
+              <div key={step.id} className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${
+                  step.status === 'approved' ? 'bg-green-100 text-green-600' :
+                  step.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                  step.status === 'pending' ? 'bg-blue-100 text-blue-600' :
+                  'bg-gray-100 text-gray-400'
+                }`}>
+                  {step.status === 'approved' ? <CheckCircle size={16} /> :
+                   step.status === 'rejected' ? <XCircle size={16} /> :
+                   step.status === 'pending' ? <Clock size={16} /> : i + 1}
+                </div>
+                <div className="flex-1">
+                  <span className="font-medium text-sm">{step.user?.name || '—'}</span>
+                  <span className="text-xs text-gray-400 ml-2 capitalize">{step.status.replace(/_/g, ' ')}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action panel for current workflow participant */}
       {pendingStep && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
-          <h2 className="text-xl font-bold">Your action</h2>
+        <div className="bg-white rounded-lg shadow p-6 mb-4 border-l-4 border-blue-500">
+          <h2 className="text-lg font-bold mb-3">Your Action Required</h2>
           <textarea
             value={actionComment}
             onChange={(e) => setActionComment(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg"
-            placeholder="Comment (required for reject / request changes)"
+            className="w-full px-3 py-2 border rounded-lg mb-3 text-sm"
+            rows={3}
+            placeholder="Comment (required for Reject / Request Changes)"
           />
           <div className="flex flex-wrap gap-2">
-            <button
-              disabled={busy}
-              onClick={() => runAction(() => workflowAPI.approve(memo.id, actionComment))}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50"
-            >
-              Approve
+            <button disabled={busy} onClick={() => runAction(() => workflowAPI.approve(memo.id, actionComment))}
+              className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-green-700">
+              <CheckCircle size={14} /> Approve
             </button>
-            <button
-              disabled={busy}
-              onClick={() => runAction(() => workflowAPI.reject(memo.id, actionComment))}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50"
-            >
-              Reject
+            <button disabled={busy || !actionComment.trim()} onClick={() => runAction(() => workflowAPI.reject(memo.id, actionComment))}
+              className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-red-700">
+              <XCircle size={14} /> Reject
             </button>
-            <button
-              disabled={busy}
-              onClick={() => runAction(() => workflowAPI.requestChanges(memo.id, actionComment))}
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg disabled:opacity-50"
-            >
-              Request changes
+            <button disabled={busy || !actionComment.trim()} onClick={() => runAction(() => workflowAPI.requestChanges(memo.id, actionComment))}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-amber-600">
+              Request Changes
             </button>
-            <button
-              disabled={busy}
-              onClick={() => runAction(() => workflowAPI.forward(memo.id))}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50"
-            >
-              Forward
+            <button disabled={busy} onClick={() => runAction(() => workflowAPI.forward(memo.id))}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-gray-700">
+              Forward / Complete Review
             </button>
           </div>
         </div>
       )}
 
+      {/* Attachments */}
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Attachments</h2>
+          <label className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg cursor-pointer hover:bg-gray-50">
+            <Upload size={14} />
+            {uploading ? 'Uploading...' : 'Upload'}
+            <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+          </label>
+        </div>
+        {memo.attachments?.length === 0 && <p className="text-sm text-gray-400">No attachments.</p>}
+        <ul className="space-y-2">
+          {memo.attachments?.map((a: any) => (
+            <li key={a.id} className="flex items-center justify-between p-2 border rounded-lg">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium">{a.fileName}</p>
+                  <p className="text-xs text-gray-400">{(a.fileSize / 1024).toFixed(1)} KB</p>
+                </div>
+              </div>
+              <button onClick={() => handleDownload(a)} className="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                <Download size={14} /> Download
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Comments */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold mb-4">Comments</h2>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Comments</h2>
         <ul className="space-y-3 mb-4">
           {(memo.comments || []).map((c: any) => (
-            <li key={c.id} className="border-b pb-2">
-              <p className="text-sm font-medium">{c.author?.name}</p>
-              <p>{c.text}</p>
+            <li key={c.id} className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                {c.author?.name?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-sm font-medium">{c.author?.name}</p>
+                  <p className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleString()}</p>
+                </div>
+                <p className="text-sm text-gray-700 mt-0.5">{c.text}</p>
+              </div>
             </li>
           ))}
         </ul>
@@ -123,18 +334,25 @@ export default function MemoDetailPage() {
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="flex-1 px-4 py-2 border rounded-lg"
-            placeholder="Add a comment"
+            className="flex-1 px-3 py-2 border rounded-lg text-sm"
+            placeholder="Write a comment..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && comment.trim()) {
+                e.preventDefault();
+                runAction(async () => {
+                  await commentsAPI.add({ memoId: memo.id, text: comment });
+                  setComment('');
+                });
+              }
+            }}
           />
           <button
             disabled={busy || !comment.trim()}
-            onClick={() =>
-              runAction(async () => {
-                await commentsAPI.add({ memoId: memo.id, text: comment });
-                setComment('');
-              })
-            }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+            onClick={() => runAction(async () => {
+              await commentsAPI.add({ memoId: memo.id, text: comment });
+              setComment('');
+            })}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-blue-700"
           >
             Post
           </button>

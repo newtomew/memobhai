@@ -12,14 +12,17 @@ const createCategorySchema = z.object({
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const ctx = await resolveAuth(req);
   if (!ctx) return res.status(401).json({ error: 'Unauthorized' });
-  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'GET') {
+    // Any authenticated org member can list categories (needed for memo creation)
     const categories = await prisma.memoCategory.findMany({
       where: { organizationId: ctx.organizationId },
     });
     return res.json({ categories });
   }
+
+  // Write operations require admin
+  if (ctx.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
 
   if (req.method === 'POST') {
     const data = createCategorySchema.parse(req.body);

@@ -10,6 +10,9 @@ import MyMemosPage from './pages/MyMemosPage';
 import MemoDetailPage from './pages/MemoDetailPage';
 import MemoCreatePage from './pages/MemoCreatePage';
 import AdminPage from './pages/AdminPage';
+import CompletedMemosPage from './pages/CompletedMemosPage';
+import SearchPage from './pages/SearchPage';
+import ProfilePage from './pages/ProfilePage';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -31,8 +34,11 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/my-memos" element={<MyMemosPage />} />
-            <Route path="/memos/:id" element={<MemoDetailPage />} />
+            <Route path="/completed" element={<CompletedMemosPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/memos/create" element={<MemoCreatePage />} />
+            <Route path="/memos/:id" element={<MemoDetailPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Route>
