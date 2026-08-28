@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Organization (Tenant)
+model Organization {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  logo      String?
+  contactEmail String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  departments  Department[]
+  users        User[]
+  memos        Memo[]
+  categories   MemoCategory[]
+  templates    WorkflowTemplate[]
+  auditLogs    AuditLog[]
+
+  @@index([slug])
+  @@map("organizations")
+}
+
+// Department
+model Department {
+  id        String     @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name      String
+  description String?
+  status    String     @default("active")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users     User[]
+  memos     Memo[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+// User (profile data — auth handled by Supabase Auth)
+model User {
+  id        String     @id @default(uuid())
+  authId    String     @unique // Links to Supabase Auth user (auth.users.id)
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department  Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  email     String
+  name      String
+  designation String?
+  role      String     @default("user") // user, admin
+  status    String     @default("active") // active, inactive
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  memos      Memo[]
+  workflowSteps WorkflowStep[]
+  approvals  Approval[]
+  comments   Comment[]
+  delegations Delegation[] @relation("delegatingUser")
+  delegatedTo Delegation[] @relation("delegate")
+  notifications Notification[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([authId])
+  @@map("users")
+}
+
+// Memo Categories
+model MemoCategory {
+  id        String     @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name      String
+  description String?
+  status    String     @default("active")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  memos     Memo[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("memo_categories")
+}
+
+// Memo
+model Memo {
+  id        String     @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  departmentId String
+  department Department @relation(fields: [departmentId], references: [id])
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id])
+  categoryId String?
+  category  MemoCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  memoNumber String     // auto-generated like ORG-2024-001
+  subject   String
+  body      String     // Rich text content
+  priority  String     @default("normal") // normal, high, urgent
+  status    String     @default("draft") // draft, submitted, pending_review, pending_approval, changes_requested, rejected, approved, cancelled
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  submittedAt DateTime?
+  completedAt DateTime?
+
+  attachments Attachment[]
+  workflowSteps WorkflowStep[]
+  approvals  Approval[]
+  comments   Comment[]
+  versions   MemoVersion[]
+
+  @@unique([organizationId, memoNumber])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([authorId])
+  @@index([status])
+  @@map("memos")
+}
+
+// Memo Versions
+model MemoVersion {
+  id        String     @id @default(uuid())
+  memoId    String
+  memo      Memo       @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  versionNumber Int
+  subject   String
+  body      String
+  createdAt DateTime   @default(now())
+
+  @@unique([memoId, versionNumber])
+  @@index([memoId])
+  @@map("memo_versions")
+}
+
+// Workflow Templates
+model WorkflowTemplate {
+  id        String     @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name      String
+  description String?
+  positions String[]   // JSON array of position names
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("workflow_templates")
+}
+
+// Workflow Steps
+model WorkflowStep {
+  id        String     @id @default(uuid())
+  memoId    String
+  memo      Memo       @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  position  Int
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+
+  status    String     @default("pending") // pending, completed, skipped
+  action    String?    // approve, reject, request_changes
+  comment   String?
+  createdAt DateTime   @default(now())
+  completedAt DateTime?
+
+  approvals Approval[]
+
+  @@unique([memoId, position])
+  @@index([memoId])
+  @@index([userId])
+  @@map("workflow_steps")
+}
+
+// Approvals/Actions
+model Approval {
+  id        String     @id @default(uuid())
+  memoId    String
+  memo      Memo       @relation(fields: [memoId], references: [id], onDelete: Cascade)
+  workflowStepId String
+  workflowStep WorkflowStep @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+
+  action    String     // approve, reject, request_changes, forward
+  comment   String?
+  createdAt DateTime   @default(now())
+
+  @@index([memoId])
+  @@index([userId])
+  @@map("approvals")
+}
+
+// Comments
+model Comment {
+  id        String     @id @default(uuid())
+  memoId    String
+  memo      Memo       @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id])
+
+  text      String
+  type      String     @default("general") // general, approval, rejection, request_changes
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([memoId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// Attachments
+model Attachment {
+  id        String     @id @default(uuid())
+  memoId    String
+  memo      Memo       @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  fileName  String
+  fileSize  Int
+  mimeType  String
+  path      String     // Supabase Storage path
+  uploadedBy String
+  uploadedAt DateTime   @default(now())
+
+  @@index([memoId])
+  @@map("attachments")
+}
+
+// Delegation
+model Delegation {
+  id        String     @id @default(uuid())
+  delegatingUserId String
+  delegatingUser User   @relation("delegatingUser", fields: [delegatingUserId], references: [id], onDelete: Cascade)
+
+  delegateId String
+  delegate   User       @relation("delegate", fields: [delegateId], references: [id], onDelete: Cascade)
+
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  status    String     @default("active")
+  createdAt DateTime   @default(now())
+
+  @@index([delegatingUserId])
+  @@index([delegateId])
+  @@map("delegations")
+}
+
+// Notifications
+model Notification {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String     // memo_assigned, memo_approved, memo_rejected, changes_requested, comment_added, memo_resubmitted, workflow_completed
+  message   String
+  memoNumber String?
+  isRead    Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// Audit Log
+model AuditLog {
+  id        String     @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId    String?
+  event     String
+  entityType String?
+  entityId  String?
+  description String?
+  createdAt DateTime   @default(now())
+
+  @@index([organizationId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
