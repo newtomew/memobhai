@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
 export interface User {
@@ -48,7 +48,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('organization');
-    supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      supabase.auth.signOut();
+    }
     set({ token: null, user: null, organization: null, session: null });
   },
 
@@ -62,9 +64,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Listen to Supabase auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
-  useAuthStore.getState().setSession(session);
-  if (event === 'SIGNED_OUT') {
-    useAuthStore.getState().clearAuth();
-  }
-});
+if (isSupabaseConfigured) {
+  supabase.auth.onAuthStateChange((event, session) => {
+    useAuthStore.getState().setSession(session);
+    if (event === 'SIGNED_OUT') {
+      useAuthStore.getState().clearAuth();
+    }
+  });
+}
