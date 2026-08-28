@@ -83,7 +83,8 @@ async function main() {
 
   // Create auth users in Supabase + profile records in Prisma
   for (const u of usersToCreate) {
-    // Create auth user in Supabase
+    let authId: string | undefined;
+
     const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
       email: u.email,
       password: DEFAULT_PASSWORD,
@@ -91,14 +92,22 @@ async function main() {
     });
 
     if (error) {
-      console.error(`Failed to create auth user for ${u.email}:`, error.message);
-      continue;
+      // Auth user may already exist from a prior seed — look up and link profile
+      const { data: listed } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = listed?.users?.find((user) => user.email === u.email);
+      if (!existing) {
+        console.error(`Failed to create auth user for ${u.email}:`, error.message);
+        continue;
+      }
+      authId = existing.id;
+      console.log(`Using existing auth user: ${u.email}`);
+    } else {
+      authId = authData.user.id;
     }
 
-    // Create profile in Prisma
     const user = await prisma.user.create({
       data: {
-        authId: authData.user.id,
+        authId,
         organizationId: org.id,
         departmentId: deptMap[u.departmentName].id,
         email: u.email,

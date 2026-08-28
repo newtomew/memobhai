@@ -20,7 +20,8 @@
     "@vercel/node": "^5.5.16",
     "concurrently": "^8.2.2",
     "prisma": "^5.13.0",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "vercel": "^59.9.1"
   },
   "dependencies": {
     "@prisma/client": "^5.13.0",
