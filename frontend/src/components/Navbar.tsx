@@ -5,6 +5,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { notificationsAPI, messagesAPI } from '../services/api';
 import { avatarColor } from '../lib/statusColors';
 
+function whenIdle(cb: () => void, fallbackMs = 1500) {
+  if (typeof window.requestIdleCallback === 'function') {
+    return window.requestIdleCallback(cb, { timeout: fallbackMs });
+  }
+  return window.setTimeout(cb, fallbackMs);
+}
+
 export default function Navbar() {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
@@ -16,33 +23,60 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const notifRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const fullNotifsLoaded = useRef(false);
 
-  const loadNotifications = (sync = false) => {
-    notificationsAPI.list(sync)
+  const loadNotificationBadges = () => {
+    notificationsAPI.badge()
+      .then((r) => setSummary(r.data.summary || { total: 0, sinceLogin: 0, overdue: 0 }))
+      .catch(() => {});
+  };
+
+  const loadFullNotifications = () => {
+    notificationsAPI.list(false)
       .then((r) => {
         setNotifications(r.data.notifications || []);
         setSummary(r.data.summary || { total: 0, sinceLogin: 0, overdue: 0 });
+        fullNotifsLoaded.current = true;
       })
       .catch(() => {});
   };
 
-  const loadMessages = () => {
-    messagesAPI.list()
+  const loadMessageBadge = () => {
+    messagesAPI.unreadCount()
       .then((r) => setUnreadMessages(r.data.unreadTotal || 0))
       .catch(() => {});
   };
 
   useEffect(() => {
-    // Fast path: list only. Defer heavy sync until idle so login → dashboard stays responsive.
-    loadNotifications(false);
-    loadMessages();
-    const syncLater = window.setTimeout(() => loadNotifications(true), 8000);
-    const interval = setInterval(() => loadNotifications(false), 120_000);
-    const msgInterval = setInterval(loadMessages, 45_000);
+    let idleId: number | ReturnType<typeof window.requestIdleCallback>;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+    const startPolling = () => {
+      loadNotificationBadges();
+      loadMessageBadge();
+      pollTimer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          loadNotificationBadges();
+          loadMessageBadge();
+        }
+      }, 180_000);
+    };
+
+    idleId = whenIdle(startPolling, 2000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotificationBadges();
+        loadMessageBadge();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
-      window.clearTimeout(syncLater);
-      clearInterval(interval);
-      clearInterval(msgInterval);
+      if (typeof idleId === 'number') window.clearTimeout(idleId);
+      else if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+      if (pollTimer) clearInterval(pollTimer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -73,6 +107,15 @@ export default function Navbar() {
     } else {
       navigate('/search');
     }
+  };
+
+  const openNotifications = () => {
+    setShowNotifs((v) => {
+      const opening = !v;
+      if (opening && !fullNotifsLoaded.current) loadFullNotifications();
+      return opening;
+    });
+    setShowAccount(false);
   };
 
   const sinceLogin = notifications.filter((n) => n.category === 'since_login' && !n.isRead).slice(0, 5);
@@ -143,7 +186,7 @@ export default function Navbar() {
         </Link>
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => { setShowNotifs((v) => !v); setShowAccount(false); if (!showNotifs) loadNotifications(false); }}
+            onClick={openNotifications}
             className="relative w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface-muted transition"
             title="Notifications"
           >
@@ -178,7 +221,9 @@ export default function Navbar() {
               </div>
 
               {notifications.length === 0 ? (
-                <p className="text-sm text-gray-400 px-5 py-8 text-center">No notifications</p>
+                <p className="text-sm text-gray-400 px-5 py-8 text-center">
+                  {unread > 0 ? 'Open notifications page for details' : 'No notifications'}
+                </p>
               ) : (
                 <ul>
                   {renderGroup('Since Last Login', sinceLogin, 'text-accent-dark')}

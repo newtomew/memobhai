@@ -64,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('organization');
+    sessionStorage.removeItem('memobhai_auth_refreshed');
     if (isSupabaseConfigured) {
       supabase.auth.signOut();
     }

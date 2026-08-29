@@ -37,12 +37,18 @@ export default function AdminDashboard({ stats, recentMemos, myPending = 0 }: Pr
   const [reporting, setReporting] = useState<Partial<AdminStats>>({});
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
+    const loadReporting = () => {
       adminAPI.getDashboard()
         .then((res) => setReporting(res.data.stats || {}))
         .catch(() => {});
-    }, 100);
-    return () => window.clearTimeout(id);
+    };
+    const id = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(loadReporting, { timeout: 4000 })
+      : window.setTimeout(loadReporting, 2500);
+    return () => {
+      if (typeof id === 'number') window.clearTimeout(id);
+      else if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id);
+    };
   }, []);
 
   const insights = { ...reporting };

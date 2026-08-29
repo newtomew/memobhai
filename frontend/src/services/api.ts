@@ -171,6 +171,8 @@ export const attachmentsAPI = {
 export const notificationsAPI = {
   list: (sync = false) => api.get('/notifications', { params: sync ? { sync: '1' } : {} }),
 
+  badge: () => api.get('/notifications', { params: { badge: '1' } }),
+
   markAsRead: (id: string) => api.post(`/notifications/${id}/read`),
 
   markAllRead: () => api.post('/notifications'),
@@ -236,6 +238,7 @@ export const profileAPI = {
 // Messages
 export const messagesAPI = {
   list: () => api.get('/messages'),
+  unreadCount: () => api.get('/messages', { params: { unread: '1' } }),
   thread: (peerId: string) => api.get('/messages', { params: { peerId } }),
   send: (recipientId: string, body: string) => api.post('/messages', { recipientId, body }),
 };

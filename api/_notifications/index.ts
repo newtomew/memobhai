@@ -39,6 +39,17 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
 
   if (req.method === 'GET') {
     const shouldSync = req.query.sync === '1' || req.query.sync === 'true';
+    const badgeOnly = req.query.badge === '1';
+
+    if (badgeOnly) {
+      const unread = await prisma.notification.count({
+        where: { userId: ctx.userId, isRead: false },
+      });
+      return res.json({
+        notifications: [],
+        summary: { total: unread, sinceLogin: 0, overdue: 0 },
+      });
+    }
 
     if (shouldSync) {
       const user = await prisma.user.findUnique({

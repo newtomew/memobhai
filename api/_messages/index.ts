@@ -6,7 +6,15 @@ import { apiHandler } from '../_lib/handler';
 export default apiHandler(
   withActiveUser(async (ctx, req, res) => {
     if (req.method === 'GET') {
-      const peerId = req.query.peerId as string | undefined;
+    // Lightweight badge poll for navbar — single count query
+    if (req.query.unread === '1' || req.query.badge === '1') {
+      const unreadTotal = await prisma.directMessage.count({
+        where: { recipientId: ctx.userId, organizationId: ctx.organizationId, isRead: false },
+      });
+      return res.json({ unreadTotal });
+    }
+
+    const peerId = req.query.peerId as string | undefined;
 
       if (peerId) {
         const peer = await prisma.user.findFirst({

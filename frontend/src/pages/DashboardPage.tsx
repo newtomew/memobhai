@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/auth';
 import { dashboardAPI } from '../services/api';
 import UserDashboard from './dashboard/UserDashboard';
-import AdminDashboard from './dashboard/AdminDashboard';
+
+const AdminDashboard = lazy(() => import('./dashboard/AdminDashboard'));
 
 export default function DashboardPage() {
   const { isAdmin } = useAuthStore();
@@ -36,11 +37,13 @@ export default function DashboardPage() {
 
   if (isAdmin() && data?.role === 'admin') {
     return (
-      <AdminDashboard
-        stats={data.stats}
-        recentMemos={data.recentMemos || []}
-        myPending={data.myPending}
-      />
+      <Suspense fallback={<div className="text-sm text-gray-400 py-8">Loading admin dashboard...</div>}>
+        <AdminDashboard
+          stats={data.stats}
+          recentMemos={data.recentMemos || []}
+          myPending={data.myPending}
+        />
+      </Suspense>
     );
   }
 

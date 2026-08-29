@@ -16,7 +16,7 @@ export interface AuthContext {
   isPlatformAdmin: boolean;
 }
 
-const AUTH_CACHE_TTL_MS = 60_000;
+const AUTH_CACHE_TTL_MS = 300_000;
 const authCache = new Map<string, { ctx: AuthContext; expires: number }>();
 
 function getCachedAuth(token: string): AuthContext | null {

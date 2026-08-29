@@ -1,17 +1,16 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
 
-const PUBLIC_PATHS = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
+const SESSION_KEY = 'memobhai_auth_refreshed';
 
-/** Refreshes user role from server after first paint (non-blocking). Skipped on auth pages. */
+/** Refreshes user role from server once per browser session (non-blocking). */
 export default function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const { token, user, organization, setAuth } = useAuthStore();
-  const { pathname } = useLocation();
 
   useEffect(() => {
-    if (!token || !user || PUBLIC_PATHS.has(pathname)) return;
+    if (!token || !user) return;
+    if (sessionStorage.getItem(SESSION_KEY)) return;
 
     const id = window.setTimeout(() => {
       authAPI.me()
@@ -21,11 +20,12 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
           if (fresh && organization) {
             setAuth(token, { ...user, ...fresh }, freshOrg || organization);
           }
+          sessionStorage.setItem(SESSION_KEY, '1');
         })
         .catch(() => {});
-    }, 300);
+    }, 500);
     return () => window.clearTimeout(id);
-  }, [pathname, token, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <>{children}</>;
 }
