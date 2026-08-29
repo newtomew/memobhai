@@ -6,10 +6,14 @@ import AuthBootstrap from './components/AuthBootstrap';
 import PageLoader from './components/PageLoader';
 
 // Public pages — keep login/register eager for fast first paint
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ArticlesListPage from './pages/ArticlesListPage';
+import ArticlePage from './pages/ArticlePage';
+import { BillingSuccessPage, BillingFailPage, BillingCancelPage } from './pages/BillingResultPages';
 
 // Lazy-loaded pages — cuts initial bundle ~60%
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -25,6 +29,7 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
 const DelegationPage = lazy(() => import('./pages/DelegationPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
 
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
@@ -69,6 +74,12 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/pending" element={<PendingRoute />} />
 
+          <Route path="/articles" element={<ArticlesListPage />} />
+          <Route path="/articles/:slug" element={<ArticlePage />} />
+          <Route path="/billing/success" element={<BillingSuccessPage />} />
+          <Route path="/billing/fail" element={<BillingFailPage />} />
+          <Route path="/billing/cancel" element={<BillingCancelPage />} />
+
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Lazy><DashboardPage /></Lazy>} />
@@ -86,6 +97,7 @@ export default function App() {
             <Route element={<AdminRoute />}>
               <Route element={<Layout />}>
                 <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
+                <Route path="/billing" element={<Lazy><BillingPage /></Lazy>} />
               </Route>
             </Route>
             <Route element={<PlatformRoute />}>
@@ -95,7 +107,7 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="/" element={<Navigate to={token ? '/dashboard' : '/login'} />} />
+          <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         </Routes>
       </AuthBootstrap>
     </BrowserRouter>

@@ -40,7 +40,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {
-        setError('Server is waking up — please try again in a few seconds.');
+        setError('Server is waking up. Please try again in a few seconds.');
       } else {
         setError(err.response?.data?.error || 'Login failed');
       }

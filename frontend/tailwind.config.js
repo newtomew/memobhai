@@ -22,6 +22,13 @@ export default {
           muted: '#f5f6f8',
         },
         canvas: '#eef0f4',
+        landing: {
+          bg: '#050508',
+          surface: '#0f0f14',
+          card: '#16161f',
+          border: '#252530',
+          muted: '#8b8b9a',
+        },
       },
       borderRadius: {
         '4xl': '2rem',

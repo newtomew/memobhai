@@ -269,4 +269,12 @@ export const dashboardAPI = {
   getSummary: () => api.get('/dashboard/summary'),
 };
 
+export const billingAPI = {
+  get: () => api.get('/billing'),
+  initiate: (plan: string, cus_phone?: string) =>
+    api.post('/billing?action=initiate', { plan, cus_phone }),
+  confirm: (paymentId: string) =>
+    api.post('/billing?action=confirm', { paymentId }),
+};
+
 export default api;

@@ -155,3 +155,18 @@ body {
 .slide-up {
   animation: slideUp 0.35s ease-out;
 }
+
+/* Landing page */
+.landing-page {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.hero-glow {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 100%,
+    rgba(137, 185, 246, 0.35) 0%,
+    rgba(52, 211, 153, 0.12) 35%,
+    rgba(137, 185, 246, 0.05) 55%,
+    transparent 75%
+  );
+}

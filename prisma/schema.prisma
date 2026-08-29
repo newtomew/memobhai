@@ -16,6 +16,10 @@ model Organization {
   logo      String?
   contactEmail String?
   status    String     @default("pending") // pending, active, banned
+  plan      String     @default("starter") // starter, professional, enterprise
+  planExpiresAt DateTime?
+  memoCountThisMonth Int @default(0)
+  memoCountResetAt   DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -27,6 +31,7 @@ model Organization {
   auditLogs    AuditLog[]
   joinRequests JoinRequest[]
   messages     DirectMessage[]
+  payments     SubscriptionPayment[]
 
   @@index([slug])
   @@map("organizations")
@@ -376,4 +381,32 @@ model OtpVerification {
 
   @@index([userId, purpose])
   @@map("otp_verifications")
+}
+
+// Subscription payments (aamarPay sandbox / live)
+model SubscriptionPayment {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  tranId         String   @unique
+  plan           String   // professional
+  amount         Float
+  currency       String   @default("BDT")
+  status         String   @default("pending") // pending, gateway_success, gateway_failed, cancelled, admin_confirmed
+  gatewayStatus  String?
+  gatewayTxnId   String?
+  paymentUrl     String?
+  customerName   String
+  customerEmail  String
+  customerPhone  String?
+  adminConfirmedAt DateTime?
+  adminConfirmedById String?
+  rawResponse    String?  // JSON
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("subscription_payments")
 }

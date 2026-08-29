@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Shield,
   UserCheck,
+  CreditCard,
 } from 'lucide-react';
 
 const menuItems = [
@@ -29,6 +30,7 @@ const menuItems = [
   { icon: Bell, label: 'Notifications', href: '/notifications', admin: false },
   { icon: User, label: 'Profile', href: '/profile', admin: false },
   { icon: Settings, label: 'Admin Panel', href: '/admin', admin: true },
+  { icon: CreditCard, label: 'Billing', href: '/billing', admin: true },
   { icon: Shield, label: 'Platform', href: '/platform', platform: true },
 ];
 

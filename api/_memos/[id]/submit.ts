@@ -4,6 +4,7 @@ import { prisma } from '../../_lib/prisma';
 import { apiHandler } from '../../_lib/handler';
 import { memoWhereById } from '../../_lib/memoAccess';
 import { snapshotMemoVersion } from '../../_lib/memoVersions';
+import { assertWorkflowStepsAllowed } from '../../_lib/plans';
 
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -41,6 +42,14 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (validUsers.length !== workflowUserIds.length) {
     return res.status(400).json({ error: 'One or more workflow users do not belong to this organization' });
   }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { plan: true },
+  });
+  const planId = (org?.plan || 'starter') as 'starter' | 'professional' | 'enterprise';
+  const wfCheck = assertWorkflowStepsAllowed(planId, workflowUserIds.length);
+  if (!wfCheck.ok) return res.status(403).json({ error: wfCheck.error, code: 'PLAN_LIMIT' });
 
   const updated = await prisma.$transaction(async (tx) => {
     if (isResubmit) {

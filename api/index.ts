@@ -45,6 +45,7 @@ import platformBan from './_platform/ban';
 import authOrgLookup from './_auth/org-lookup';
 import memoVersions from './_memos/[id]/versions';
 import delegationsIndex from './_delegations/index';
+import billingIndex from './_billing/index';
 
 function parsePath(req: VercelRequest): string[] {
   const raw = req.query.path;
@@ -138,6 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (seg0 === 'profile') return profileIndex(req, res);
 
   if (seg0 === 'delegations') return delegationsIndex(req, res);
+
+  if (seg0 === 'billing') return billingIndex(req, res);
 
   if (seg0 === 'platform') {
     if (seg1 === 'organizations') return platformOrganizations(req, res);

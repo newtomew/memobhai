@@ -12,9 +12,9 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
     <div className="min-h-screen bg-canvas-pattern flex p-3 gap-3">
       {/* Decorative sidebar — matches app shell */}
       <aside className="hidden lg:flex w-[72px] flex-shrink-0 bg-charcoal rounded-4xl flex-col items-center py-6 shadow-sidebar">
-        <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center mb-auto">
-          <span className="text-charcoal font-extrabold text-lg">M</span>
-        </div>
+        <Link to="/" className="w-10 h-10 rounded-2xl overflow-hidden mb-auto hover:opacity-90 transition-opacity">
+          <img src="/memobhai-logo.svg" alt="MemoBhai" className="w-full h-full" />
+        </Link>
         <div className="mt-auto w-11 h-11 flex items-center justify-center rounded-2xl text-gray-600">
           <LogOut size={18} />
         </div>
@@ -23,15 +23,13 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
       <div className="flex-1 flex flex-col min-w-0 gap-3">
         {/* Header bar */}
         <header className="bg-white rounded-4xl shadow-card px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-charcoal rounded-2xl flex items-center justify-center lg:hidden">
-              <span className="text-white font-extrabold text-sm">M</span>
-            </div>
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <img src="/memobhai-logo.svg" alt="MemoBhai" className="w-10 h-10 rounded-2xl lg:hidden" />
             <div>
               <p className="text-sm font-semibold text-charcoal">Greetings! 👋</p>
               <p className="text-xs text-gray-400">Welcome to MemoBhai</p>
             </div>
-          </div>
+          </Link>
           <span className="text-xs text-gray-400 bg-surface-muted px-3 py-1.5 rounded-full hidden sm:inline">
             Memo Management System
           </span>

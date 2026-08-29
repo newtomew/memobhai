@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAuth } from '../_lib/auth';
 import { prisma } from '../_lib/prisma';
 import { apiHandler } from '../_lib/handler';
+import { assertCanCreateMemo, incrementMemoCount } from '../_lib/plans';
 
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const ctx = await resolveAuth(req);
@@ -59,6 +60,9 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
       return res.status(400).json({ error: 'Subject, body, and departmentId are required' });
     }
 
+    const limitCheck = await assertCanCreateMemo(ctx.organizationId);
+    if (!limitCheck.ok) return res.status(403).json({ error: limitCheck.error, code: 'PLAN_LIMIT' });
+
     // Generate memo number: ORG-YYYY-NNN
     const year = new Date().getFullYear();
     const count = await prisma.memo.count({
@@ -79,6 +83,8 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
         status: 'draft',
       },
     });
+
+    await incrementMemoCount(ctx.organizationId);
 
     // Audit log
     await prisma.auditLog.create({

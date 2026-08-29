@@ -3,6 +3,7 @@ import { resolveAuth } from '../_lib/auth';
 import { prisma } from '../_lib/prisma';
 import { supabaseAdmin } from '../_lib/supabase';
 import { apiHandler } from '../_lib/handler';
+import { assertCanAddUser } from '../_lib/plans';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -33,6 +34,9 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
 
   if (req.method === 'POST') {
     const data = createUserSchema.parse(req.body);
+
+    const userLimit = await assertCanAddUser(ctx.organizationId);
+    if (!userLimit.ok) return res.status(403).json({ error: userLimit.error, code: 'PLAN_LIMIT' });
 
     // Check email not taken
     const existing = await prisma.user.findFirst({ where: { email: data.email } });
