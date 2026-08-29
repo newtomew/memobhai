@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authAPI } from '../services/api';
 import AuthLayout from '../components/AuthLayout';
@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [slowHint, setSlowHint] = useState(false);
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const { setAuth, clearLocalAuth } = useAuthStore();
@@ -34,14 +33,17 @@ export default function LoginPage() {
     sessionStorage.removeItem('memobhai_auth_refreshed');
     try {
       const response = await authAPI.login(email, password);
-      const { token, user, organization, pending, refreshToken } = response.data;
-      setAuth(token, user, organization, refreshToken);
+      const { token, user, organization, pending } = response.data;
+      setAuth(token, user, organization);
+      sessionStorage.setItem('memobhai_just_logged_in', '1');
+      sessionStorage.removeItem('memobhai_auth_refreshed');
       const goingToUpgrade = redirectTo.startsWith('/upgrade');
-      if (pending || user?.status === 'pending' || organization?.status === 'pending') {
-        navigate(goingToUpgrade ? redirectTo : '/pending', { replace: true });
-      } else {
-        navigate(redirectTo, { replace: true });
-      }
+      const target = pending || user?.status === 'pending' || organization?.status === 'pending'
+        ? (goingToUpgrade ? redirectTo : '/pending')
+        : redirectTo;
+      // Full page navigation avoids React auth race / tab freeze after login
+      window.location.replace(target);
+      return;
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {
         setError('Server is waking up. Please try again in a few seconds.');

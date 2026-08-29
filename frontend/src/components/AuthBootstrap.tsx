@@ -15,6 +15,11 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!token || !user) return;
     if (AUTH_PATHS.has(location.pathname)) return;
+    if (sessionStorage.getItem('memobhai_just_logged_in')) {
+      sessionStorage.removeItem('memobhai_just_logged_in');
+      sessionStorage.setItem(SESSION_KEY, '1');
+      return;
+    }
     if (sessionStorage.getItem(SESSION_KEY)) return;
     if (started.current) return;
     started.current = true;

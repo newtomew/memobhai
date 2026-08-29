@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { Session } from '@supabase/supabase-js';
 
 export interface User {
   id: string;
@@ -25,9 +23,7 @@ interface AuthState {
   token: string | null;
   user: User | null;
   organization: Organization | null;
-  session: Session | null;
-  setAuth: (token: string, user: User, organization: Organization, refreshToken?: string | null) => void;
-  setSession: (session: Session | null) => void;
+  setAuth: (token: string, user: User, organization: Organization) => void;
   updateUser: (patch: Partial<User>) => void;
   clearLocalAuth: () => void;
   clearAuth: () => void;
@@ -56,25 +52,17 @@ function readStoredOrganization(): Organization | null {
   }
 }
 
-/** True while an intentional sign-out is in flight — ignore late SIGNED_OUT events. */
-let signingOut = false;
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem('token'),
   user: readStoredUser(),
   organization: readStoredOrganization(),
-  session: null,
 
-  setAuth: (token: string, user: User, organization: Organization, refreshToken?: string | null) => {
+  setAuth: (token: string, user: User, organization: Organization) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('organization', JSON.stringify(organization));
     sessionStorage.removeItem('memobhai_auth_refreshed');
     set({ token, user, organization });
-
-    if (isSupabaseConfigured && refreshToken) {
-      void supabase.auth.setSession({ access_token: token, refresh_token: refreshToken }).catch(() => {});
-    }
   },
 
   updateUser: (patch: Partial<User>) => {
@@ -85,32 +73,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user });
   },
 
-  setSession: (session: Session | null) => {
-    set({ session });
-  },
-
-  /** Clear local session only — no Supabase signOut (safe during login). */
   clearLocalAuth: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('organization');
     sessionStorage.removeItem('memobhai_auth_refreshed');
-    set({ token: null, user: null, organization: null, session: null });
+    sessionStorage.removeItem('memobhai_just_logged_in');
+    set({ token: null, user: null, organization: null });
   },
 
   clearAuth: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('organization');
-    sessionStorage.removeItem('memobhai_auth_refreshed');
-    set({ token: null, user: null, organization: null, session: null });
-
-    if (isSupabaseConfigured) {
-      signingOut = true;
-      void supabase.auth.signOut().finally(() => {
-        signingOut = false;
-      });
-    }
+    get().clearLocalAuth();
   },
 
   isLoggedIn: () => get().token !== null,
@@ -124,12 +97,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isPending: () =>
     get().user?.status === 'pending' || get().organization?.status === 'pending',
 }));
-
-if (isSupabaseConfigured) {
-  supabase.auth.onAuthStateChange((event, session) => {
-    useAuthStore.getState().setSession(session);
-    if (event === 'SIGNED_OUT' && !signingOut && !useAuthStore.getState().token) {
-      useAuthStore.getState().clearLocalAuth();
-    }
-  });
-}

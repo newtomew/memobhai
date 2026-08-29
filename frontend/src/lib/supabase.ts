@@ -5,11 +5,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
+/** Browser Supabase client — password reset only. App auth uses API JWT in Zustand. */
 export const supabase: SupabaseClient = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: true,
-        autoRefreshToken: true,
+        persistSession: false,
+        autoRefreshToken: false,
         detectSessionInUrl: true,
       },
     })
