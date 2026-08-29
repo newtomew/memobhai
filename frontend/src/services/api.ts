@@ -211,6 +211,11 @@ export const adminAPI = {
   updateTemplate: (id: string, data: any) => api.put(`/admin/templates?id=${id}`, data),
 
   deleteTemplate: (id: string) => api.delete(`/admin/templates?id=${id}`),
+
+  getEmailConfig: () => api.get('/admin/email'),
+  registerEmailDomain: () => api.post('/admin/email?action=register'),
+  verifyEmailDomain: (domainId: string) => api.post('/admin/email?action=verify', { domainId }),
+  sendTestEmail: (to: string) => api.post('/admin/email?action=test', { to }),
 };
 
 // Profile

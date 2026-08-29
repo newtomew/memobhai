@@ -30,10 +30,12 @@ const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
 const DelegationPage = lazy(() => import('./pages/DelegationPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
+const UpgradePage = lazy(() => import('./pages/UpgradePage'));
 
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import PlatformRoute from './components/PlatformRoute';
+import AuthenticatedRoute from './components/AuthenticatedRoute';
 import PendingRoute from './components/PendingRoute';
 import Layout from './components/Layout';
 
@@ -79,6 +81,10 @@ export default function App() {
           <Route path="/billing/success" element={<BillingSuccessPage />} />
           <Route path="/billing/fail" element={<BillingFailPage />} />
           <Route path="/billing/cancel" element={<BillingCancelPage />} />
+
+          <Route element={<AuthenticatedRoute />}>
+            <Route path="/upgrade" element={<Lazy><UpgradePage /></Lazy>} />
+          </Route>
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>

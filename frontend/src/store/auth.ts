@@ -32,6 +32,7 @@ interface AuthState {
   clearAuth: () => void;
   isLoggedIn: () => boolean;
   isAdmin: () => boolean;
+  isOrgAdmin: () => boolean;
   isPlatformAdmin: () => boolean;
   isPending: () => boolean;
 }
@@ -72,6 +73,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: () => get().token !== null,
 
   isAdmin: () => get().user?.role === 'admin' && get().user?.status === 'active',
+
+  /** Org admin by role only — includes pending founders who can still purchase plans. */
+  isOrgAdmin: () => get().user?.role === 'admin',
 
   isPlatformAdmin: () => Boolean(get().user?.isPlatformAdmin),
 

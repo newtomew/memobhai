@@ -41,6 +41,10 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const isAdmin = ctx.role === 'admin' || ctx.isPlatformAdmin;
 
   if (req.method === 'GET') {
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Only organization administrators can view billing' });
+    }
+
     const where = ctx.isPlatformAdmin
       ? {}
       : { organizationId: ctx.organizationId };
@@ -68,7 +72,9 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   }
 
   if (req.method === 'POST' && req.query.action === 'initiate') {
-    if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    // Org admins (including pending new-org founders) and platform admins can pay
+    const canPay = ctx.role === 'admin' || ctx.isPlatformAdmin;
+    if (!canPay) return res.status(403).json({ error: 'Only organization administrators can purchase a plan' });
 
     const { plan = 'professional', cus_phone } = req.body as { plan?: string; cus_phone?: string };
     if (plan !== 'professional') {

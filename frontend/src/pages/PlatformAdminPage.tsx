@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { platformAPI } from '../services/api';
 import { JoinRequestsTab } from './admin/AdminExtendedTabs';
-import { Shield, Building2, Users, FileText, Ban, ChevronRight, ArrowLeft, UserPlus, ExternalLink } from 'lucide-react';
+import { EmailConfigTab } from './admin/EmailConfigTab';
+import { Shield, Building2, Users, FileText, Ban, ChevronRight, ArrowLeft, UserPlus, ExternalLink, Mail } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function PlatformAdminPage() {
@@ -10,7 +11,7 @@ export default function PlatformAdminPage() {
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
   const [detail, setDetail] = useState<any>(null);
   const [tab, setTab] = useState<'managers' | 'employees' | 'memos' | 'activity'>('managers');
-  const [view, setView] = useState<'orgs' | 'join-requests'>('orgs');
+  const [view, setView] = useState<'orgs' | 'join-requests' | 'email'>('orgs');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -47,6 +48,26 @@ export default function PlatformAdminPage() {
       setError('Action failed');
     }
   };
+
+  if (view === 'email') {
+    return (
+      <div className="slide-up">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-charcoal rounded-2xl flex items-center justify-center">
+              <Mail size={18} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-charcoal">Email & Domain Setup</h1>
+              <p className="text-sm text-gray-400">Resend + memobhai.online verification</p>
+            </div>
+          </div>
+          <button onClick={() => setView('orgs')} className="btn-secondary text-sm">Back to Organizations</button>
+        </div>
+        <EmailConfigTab />
+      </div>
+    );
+  }
 
   if (view === 'join-requests') {
     return (
@@ -160,9 +181,14 @@ export default function PlatformAdminPage() {
             <p className="text-sm text-gray-400">Manage all organizations, users, and memos</p>
           </div>
         </div>
-        <button onClick={() => setView('join-requests')} className="btn-primary flex items-center gap-2">
-          <UserPlus size={16} /> Join Approvals
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => setView('email')} className="btn-secondary flex items-center gap-2">
+            <Mail size={16} /> Email Setup
+          </button>
+          <button onClick={() => setView('join-requests')} className="btn-primary flex items-center gap-2">
+            <UserPlus size={16} /> Join Approvals
+          </button>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 text-red-500 px-4 py-3 rounded-2xl mb-4 text-sm">{error}</div>}

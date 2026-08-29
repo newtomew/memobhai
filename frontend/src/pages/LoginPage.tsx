@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authAPI } from '../services/api';
 import AuthLayout from '../components/AuthLayout';
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [slowHint, setSlowHint] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
   const { setAuth, clearAuth } = useAuthStore();
 
   useEffect(() => {
@@ -33,10 +35,11 @@ export default function LoginPage() {
       const response = await authAPI.login(email, password);
       const { token, user, organization, pending } = response.data;
       setAuth(token, user, organization);
+      const goingToUpgrade = redirectTo.startsWith('/upgrade');
       if (pending || user?.status === 'pending' || organization?.status === 'pending') {
-        navigate('/pending', { replace: true });
+        navigate(goingToUpgrade ? redirectTo : '/pending', { replace: true });
       } else {
-        navigate('/dashboard', { replace: true });
+        navigate(redirectTo, { replace: true });
       }
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {

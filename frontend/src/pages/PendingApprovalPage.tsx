@@ -1,9 +1,10 @@
 import { useAuthStore } from '../store/auth';
-import { Clock } from 'lucide-react';
+import { Clock, CreditCard } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 
 export default function PendingApprovalPage() {
-  const { user, organization, clearAuth } = useAuthStore();
+  const { user, organization, clearAuth, isOrgAdmin } = useAuthStore();
 
   return (
     <AuthLayout title="Awaiting Approval" subtitle="Your account is pending review">
@@ -27,6 +28,12 @@ export default function PendingApprovalPage() {
           <p className="text-gray-400 text-xs">
             Employee accounts require approval from your organization manager.
           </p>
+        )}
+        {isOrgAdmin() && (
+          <Link to="/upgrade" className="btn-primary w-full mt-2 inline-flex items-center justify-center gap-2">
+            <CreditCard size={18} />
+            Pay for Professional (৳2,999)
+          </Link>
         )}
         <button
           onClick={() => { clearAuth(); window.location.href = '/login'; }}

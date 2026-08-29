@@ -24,7 +24,7 @@ const PLANS = [
       'Version history and audit logs', 'Org branding and logo', 'Delegation and messaging', 'Priority support',
     ],
     cta: 'Upgrade Now',
-    href: '/billing',
+    href: '/upgrade',
     highlight: true,
   },
   {
@@ -58,7 +58,10 @@ export default function PricingSection() {
 
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {PLANS.map((plan) => {
-            const href = plan.name === 'Professional' && !token ? '/register' : plan.href;
+            let href = plan.href;
+            if (plan.name === 'Professional') {
+              href = token ? '/upgrade' : '/register?plan=professional';
+            }
             const isMail = href.startsWith('mailto:');
             const Cta = isMail ? 'a' : Link;
             const ctaProps = isMail ? { href } : { to: href };

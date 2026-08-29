@@ -1,12 +1,30 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'MemoBhai <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'MemoBhai <noreply@memobhai.online>';
+const REPLY_TO = process.env.EMAIL_REPLY_TO || 'support@memobhai.online';
+const APP_URL = (
+  process.env.APP_PUBLIC_URL ||
+  process.env.FRONTEND_URL ||
+  process.env.VITE_FRONTEND_URL ||
+  'https://memobhai.vercel.app'
+).replace(/\/$/, '');
 
 const BRAND = {
   name: 'MemoBhai',
   tagline: 'Inter-Office Memo Management',
   accent: '#89B9F6',
   dark: '#1a1a2e',
+  website: 'https://memobhai.online',
 };
+
+export function getEmailConfig() {
+  return {
+    fromEmail: FROM_EMAIL,
+    replyTo: REPLY_TO,
+    appUrl: APP_URL,
+    domain: process.env.RESEND_DOMAIN || 'memobhai.online',
+    mode: FROM_EMAIL.includes('resend.dev') ? 'sandbox' : 'production',
+  };
+}
 
 function emailLayout(content: string) {
   return `
@@ -34,8 +52,9 @@ function emailLayout(content: string) {
         <tr>
           <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
             <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center">
-              © ${new Date().getFullYear()} ${BRAND.name} · memobhai.vercel.app
+              © ${new Date().getFullYear()} ${BRAND.name} · <a href="${APP_URL}" style="color:#6b7280">${APP_URL.replace('https://', '')}</a>
             </p>
+            <p style="margin:6px 0 0;color:#d1d5db;font-size:11px;text-align:center">${BRAND.website}</p>
           </td>
         </tr>
       </table>
@@ -48,8 +67,8 @@ function emailLayout(content: string) {
 export async function sendOtpEmail(to: string, code: string, purpose: string): Promise<void> {
   const subject =
     purpose === 'change_email'
-      ? 'MemoBhai — Verify your new email'
-      : 'MemoBhai — Password change verification';
+      ? 'MemoBhai: Verify your new email'
+      : 'MemoBhai: Password change verification';
 
   const purposeText =
     purpose === 'change_email'
@@ -72,13 +91,21 @@ export async function sendOtpEmail(to: string, code: string, purpose: string): P
     return;
   }
 
+  const payload: Record<string, unknown> = {
+    from: FROM_EMAIL,
+    to: [to],
+    subject,
+    html,
+  };
+  if (REPLY_TO) payload.reply_to = REPLY_TO;
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {

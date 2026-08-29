@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authAPI } from '../services/api';
 import AuthLayout from '../components/AuthLayout';
@@ -22,6 +22,8 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedPlan = searchParams.get('plan');
   const { setAuth } = useAuthStore();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +73,9 @@ export default function RegisterPage() {
       }
 
       if (pending || user?.status === 'pending' || organization?.status === 'pending') {
-        navigate('/pending');
+        navigate(selectedPlan === 'professional' ? '/upgrade' : '/pending');
+      } else if (selectedPlan === 'professional') {
+        navigate('/upgrade');
       } else {
         navigate('/dashboard');
       }
@@ -105,6 +109,12 @@ export default function RegisterPage() {
           </button>
         ))}
       </div>
+
+      {selectedPlan === 'professional' && (
+        <div className="bg-accent/10 text-accent-dark text-sm px-4 py-3 rounded-2xl mb-4">
+          You selected the Professional plan (৳2,999/month). After registration you will complete payment via aamarPay.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -152,7 +162,12 @@ export default function RegisterPage() {
 
       <p className="text-center text-gray-400 text-sm mt-6">
         Already have an account?{' '}
-        <Link to="/login" className="text-accent-dark font-medium hover:underline">Sign in</Link>
+        <Link
+          to={selectedPlan === 'professional' ? '/login?redirect=/upgrade' : '/login'}
+          className="text-accent-dark font-medium hover:underline"
+        >
+          Sign in
+        </Link>
       </p>
     </AuthLayout>
   );

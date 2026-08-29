@@ -69,7 +69,7 @@ MemoBhai is a multi-tenant inter-office memo management system with sequential a
 
 | Item | Notes |
 |------|--------|
-| Resend verified domain (Item 6) | Sandbox OTP works; production domain `memobhai.online` verification pending |
+| Resend verified domain (Item 6) | Setup guide: RESEND_DOMAIN_SETUP.md · Platform → Email Setup UI |
 | Memo email notifications (MR-029) | In-app notifications only |
 | Real-time WebSocket messages | Polling-based (45s) |
 | Full mobile-native UX | Desktop-first, responsive web |
@@ -105,6 +105,8 @@ Run `npm run db:seed` locally. See `DEMO_CREDENTIALS.md` (gitignored) for passwo
 ---
 
 ## Quick test checklist
+
+Run automated suite: `npm run test:audit` and `npm run test:e2e`
 
 1. Login → dashboard loads
 2. Create memo → rich text → workflow → submit

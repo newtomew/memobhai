@@ -33,6 +33,7 @@ import adminCategories from './_admin/categories';
 import adminDashboard from './_admin/dashboard';
 import adminAuditLogs from './_admin/audit-logs';
 import adminTemplates from './_admin/templates';
+import adminEmail from './_admin/email';
 
 import searchIndex from './_search/index';
 import dashboardSummary from './_dashboard/summary';
@@ -126,6 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (seg1 === 'dashboard') return adminDashboard(req, res);
     if (seg1 === 'audit-logs') return adminAuditLogs(req, res);
     if (seg1 === 'templates') return adminTemplates(req, res);
+    if (seg1 === 'email') return adminEmail(req, res);
   }
 
   if (seg0 === 'search') return searchIndex(req, res);

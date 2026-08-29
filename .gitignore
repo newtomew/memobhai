@@ -55,5 +55,7 @@ DEMO_CREDENTIALS.md
 # Testing
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
 .vercel
 .env*
