@@ -40,5 +40,26 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     return res.json({ department: dept });
   }
 
+  if (req.method === 'PUT') {
+    const { id } = req.query as { id: string };
+    const { name, description, status } = req.body;
+
+    const dept = await prisma.department.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+    });
+    if (!dept) return res.status(404).json({ error: 'Department not found' });
+
+    const updated = await prisma.department.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(status !== undefined && { status }),
+      },
+    });
+
+    return res.json({ department: updated });
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 });

@@ -10,7 +10,7 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const ctx = await resolveAuth(req);
   if (!ctx) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { q, status, priority, category, department, startDate, endDate } = req.query as Record<string, string | undefined>;
+  const { q, status, priority, category, department, author, startDate, endDate } = req.query as Record<string, string | undefined>;
 
   const where: Prisma.MemoWhereInput = {
     organizationId: ctx.organizationId,
@@ -18,6 +18,7 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     ...(priority && { priority }),
     ...(category && { categoryId: category }),
     ...(department && { departmentId: department }),
+    ...(author && { authorId: author }),
     ...(startDate && endDate && {
       createdAt: { gte: new Date(startDate), lte: new Date(endDate) },
     }),

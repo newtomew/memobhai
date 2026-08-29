@@ -9,6 +9,7 @@ import authChangePassword from './_auth/change-password';
 import memosList from './_memos/index';
 import memosById from './_memos/[id]';
 import memosSubmit from './_memos/[id]/submit';
+import memosCancel from './_memos/[id]/cancel';
 import memosExportPdf from './_memos/[id]/export-pdf';
 
 import workflowApprove from './_workflow/[memoId]/approve';
@@ -30,8 +31,20 @@ import adminUsers from './_admin/users';
 import adminDepartments from './_admin/departments';
 import adminCategories from './_admin/categories';
 import adminDashboard from './_admin/dashboard';
+import adminAuditLogs from './_admin/audit-logs';
+import adminTemplates from './_admin/templates';
 
 import searchIndex from './_search/index';
+import dashboardSummary from './_dashboard/summary';
+
+import messagesIndex from './_messages/index';
+import joinRequestsIndex from './_join-requests/index';
+import profileIndex from './_profile/index';
+import platformOrganizations from './_platform/organizations';
+import platformBan from './_platform/ban';
+import authOrgLookup from './_auth/org-lookup';
+import memoVersions from './_memos/[id]/versions';
+import delegationsIndex from './_delegations/index';
 
 function parsePath(req: VercelRequest): string[] {
   const raw = req.query.path;
@@ -54,13 +67,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const [seg0, seg1, seg2] = parsePath(req);
+  const segments = parsePath(req);
+  const [seg0, seg1, seg2, seg3] = segments;
 
   if (seg0 === 'auth') {
     if (seg1 === 'register') return authRegister(req, res);
     if (seg1 === 'login') return authLogin(req, res);
     if (seg1 === 'me') return authMe(req, res);
     if (seg1 === 'change-password') return authChangePassword(req, res);
+    if (seg1 === 'org-lookup') return authOrgLookup(req, res);
   }
 
   if (seg0 === 'memos') {
@@ -68,7 +83,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     req.query.id = seg1;
     if (!seg2) return memosById(req, res);
     if (seg2 === 'submit') return memosSubmit(req, res);
+    if (seg2 === 'cancel') return memosCancel(req, res);
     if (seg2 === 'export-pdf') return memosExportPdf(req, res);
+    if (seg2 === 'versions') return memoVersions(req, res);
   }
 
   if (seg0 === 'workflow') {
@@ -106,9 +123,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (seg1 === 'departments') return adminDepartments(req, res);
     if (seg1 === 'categories') return adminCategories(req, res);
     if (seg1 === 'dashboard') return adminDashboard(req, res);
+    if (seg1 === 'audit-logs') return adminAuditLogs(req, res);
+    if (seg1 === 'templates') return adminTemplates(req, res);
   }
 
   if (seg0 === 'search') return searchIndex(req, res);
 
-  return res.status(404).json({ error: 'Not found', path: [seg0, seg1, seg2].filter(Boolean) });
+  if (seg0 === 'dashboard' && seg1 === 'summary') return dashboardSummary(req, res);
+
+  if (seg0 === 'messages') return messagesIndex(req, res);
+
+  if (seg0 === 'join-requests') return joinRequestsIndex(req, res);
+
+  if (seg0 === 'profile') return profileIndex(req, res);
+
+  if (seg0 === 'delegations') return delegationsIndex(req, res);
+
+  if (seg0 === 'platform') {
+    if (seg1 === 'organizations') return platformOrganizations(req, res);
+    if (seg1 === 'ban') return platformBan(req, res);
+  }
+
+  return res.status(404).json({ error: 'Not found', path: segments });
 }

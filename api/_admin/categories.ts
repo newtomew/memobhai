@@ -39,5 +39,26 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     return res.json({ category });
   }
 
+  if (req.method === 'PUT') {
+    const { id } = req.query as { id: string };
+    const { name, description, status } = req.body;
+
+    const category = await prisma.memoCategory.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+    });
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+
+    const updated = await prisma.memoCategory.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(status !== undefined && { status }),
+      },
+    });
+
+    return res.json({ category: updated });
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 });

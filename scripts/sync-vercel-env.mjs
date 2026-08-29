@@ -33,6 +33,7 @@ for (const line of raw.split('\n')) {
 }
 
 vars.FRONTEND_URL = 'https://memobhai.vercel.app';
+vars.VITE_FRONTEND_URL = 'https://memobhai.vercel.app';
 vars.VITE_API_URL = vars.VITE_API_URL || '/api';
 
 const envs = ['production', 'preview', 'development'];

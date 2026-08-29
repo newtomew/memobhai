@@ -7,12 +7,18 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  status?: string;
+  avatarUrl?: string | null;
+  designation?: string | null;
+  isPlatformAdmin?: boolean;
 }
 
 export interface Organization {
   id: string;
   name: string;
   slug: string;
+  status?: string;
+  logo?: string | null;
 }
 
 interface AuthState {
@@ -22,9 +28,12 @@ interface AuthState {
   session: Session | null;
   setAuth: (token: string, user: User, organization: Organization) => void;
   setSession: (session: Session | null) => void;
+  updateUser: (patch: Partial<User>) => void;
   clearAuth: () => void;
   isLoggedIn: () => boolean;
   isAdmin: () => boolean;
+  isPlatformAdmin: () => boolean;
+  isPending: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -38,6 +47,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('organization', JSON.stringify(organization));
     set({ token, user, organization });
+  },
+
+  updateUser: (patch: Partial<User>) => {
+    const user = { ...get().user!, ...patch };
+    localStorage.setItem('user', JSON.stringify(user));
+    set({ user });
   },
 
   setSession: (session: Session | null) => {
@@ -54,16 +69,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ token: null, user: null, organization: null, session: null });
   },
 
-  isLoggedIn: () => {
-    return get().token !== null;
-  },
+  isLoggedIn: () => get().token !== null,
 
-  isAdmin: () => {
-    return get().user?.role === 'admin';
-  },
+  isAdmin: () => get().user?.role === 'admin' && get().user?.status === 'active',
+
+  isPlatformAdmin: () => Boolean(get().user?.isPlatformAdmin),
+
+  isPending: () =>
+    get().user?.status === 'pending' || get().organization?.status === 'pending',
 }));
 
-// Listen to Supabase auth state changes
 if (isSupabaseConfigured) {
   supabase.auth.onAuthStateChange((event, session) => {
     useAuthStore.getState().setSession(session);

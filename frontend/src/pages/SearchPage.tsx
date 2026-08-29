@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { searchAPI } from '../services/api';
+import { searchAPI, adminAPI } from '../services/api';
 import { statusBadgeClass, statusLabel, avatarColor } from '../lib/statusColors';
 import { Search } from 'lucide-react';
 
@@ -14,10 +14,22 @@ export default function SearchPage() {
   const [priority, setPriority] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [author, setAuthor] = useState('');
+  const [department, setDepartment] = useState('');
+  const [category, setCategory] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    adminAPI.listUsers().then(r => setUsers(r.data.users || []));
+    adminAPI.getDepartments().then(r => setDepartments(r.data.departments || []));
+    adminAPI.getCategories().then(r => setCategories(r.data.categories || []));
+  }, []);
 
   const runSearch = async (query: string) => {
     setLoading(true);
@@ -28,6 +40,9 @@ export default function SearchPage() {
         ...(priority && { priority }),
         ...(startDate && { startDate }),
         ...(endDate && { endDate }),
+        ...(author && { author }),
+        ...(department && { department }),
+        ...(category && { category }),
       });
       setResults(res.data.results || []);
       setSearched(true);
@@ -91,6 +106,27 @@ export default function SearchPage() {
             <label className="block text-xs font-medium text-gray-400 mb-1.5">Priority</label>
             <select value={priority} onChange={e => setPriority(e.target.value)} className="select-field">
               {PRIORITIES.map(p => <option key={p} value={p}>{p || 'All priorities'}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Author</label>
+            <select value={author} onChange={e => setAuthor(e.target.value)} className="select-field">
+              <option value="">All authors</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Department</label>
+            <select value={department} onChange={e => setDepartment(e.target.value)} className="select-field">
+              <option value="">All departments</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)} className="select-field">
+              <option value="">All categories</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>

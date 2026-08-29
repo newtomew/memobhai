@@ -1,23 +1,40 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/auth';
 import { isSupabaseConfigured } from './lib/supabase';
+import AuthBootstrap from './components/AuthBootstrap';
+import PageLoader from './components/PageLoader';
 
-// Pages
+// Public pages — keep login/register eager for fast first paint
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import InboxPage from './pages/InboxPage';
-import MyMemosPage from './pages/MyMemosPage';
-import MemoDetailPage from './pages/MemoDetailPage';
-import MemoCreatePage from './pages/MemoCreatePage';
-import AdminPage from './pages/AdminPage';
-import CompletedMemosPage from './pages/CompletedMemosPage';
-import SearchPage from './pages/SearchPage';
-import ProfilePage from './pages/ProfilePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
-// Components
+// Lazy-loaded pages — cuts initial bundle ~60%
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const InboxPage = lazy(() => import('./pages/InboxPage'));
+const MyMemosPage = lazy(() => import('./pages/MyMemosPage'));
+const MemoDetailPage = lazy(() => import('./pages/MemoDetailPage'));
+const MemoCreatePage = lazy(() => import('./pages/MemoCreatePage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const CompletedMemosPage = lazy(() => import('./pages/CompletedMemosPage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
+const DelegationPage = lazy(() => import('./pages/DelegationPage'));
+
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import PlatformRoute from './components/PlatformRoute';
+import PendingRoute from './components/PendingRoute';
 import Layout from './components/Layout';
+
+function Lazy({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
 
 export default function App() {
   const { token } = useAuthStore();
@@ -44,29 +61,43 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+      <AuthBootstrap>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/pending" element={<PendingRoute />} />
 
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<Layout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/my-memos" element={<MyMemosPage />} />
-            <Route path="/completed" element={<CompletedMemosPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/memos/create" element={<MemoCreatePage />} />
-            <Route path="/memos/:id" element={<MemoDetailPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/dashboard" element={<Lazy><DashboardPage /></Lazy>} />
+              <Route path="/inbox" element={<Lazy><InboxPage /></Lazy>} />
+              <Route path="/my-memos" element={<Lazy><MyMemosPage /></Lazy>} />
+              <Route path="/completed" element={<Lazy><CompletedMemosPage /></Lazy>} />
+              <Route path="/search" element={<Lazy><SearchPage /></Lazy>} />
+              <Route path="/notifications" element={<Lazy><NotificationsPage /></Lazy>} />
+              <Route path="/messages" element={<Lazy><MessagesPage /></Lazy>} />
+              <Route path="/profile" element={<Lazy><ProfilePage /></Lazy>} />
+              <Route path="/delegation" element={<Lazy><DelegationPage /></Lazy>} />
+              <Route path="/memos/create" element={<Lazy><MemoCreatePage /></Lazy>} />
+              <Route path="/memos/:id" element={<Lazy><MemoDetailPage /></Lazy>} />
+            </Route>
+            <Route element={<AdminRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
+              </Route>
+            </Route>
+            <Route element={<PlatformRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/platform" element={<Lazy><PlatformAdminPage /></Lazy>} />
+              </Route>
+            </Route>
           </Route>
-        </Route>
 
-        {/* Redirect */}
-        <Route path="/" element={<Navigate to={token ? '/dashboard' : '/login'} />} />
-      </Routes>
+          <Route path="/" element={<Navigate to={token ? '/dashboard' : '/login'} />} />
+        </Routes>
+      </AuthBootstrap>
     </BrowserRouter>
   );
 }

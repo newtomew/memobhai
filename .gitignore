@@ -6,6 +6,7 @@ node_modules/
 # Build
 /dist
 /build
+frontend/dist/
 .next/
 out/
 .vite/
@@ -49,7 +50,10 @@ Thumbs.db
 .turbo
 .env*.local
 .vercel/
+DEMO_CREDENTIALS.md
 
 # Testing
 coverage/
 .nyc_output/
+.vercel
+.env*

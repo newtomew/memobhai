@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAuth } from '../../_lib/auth';
 import { prisma } from '../../_lib/prisma';
 import { apiHandler } from '../../_lib/handler';
+import { findPendingWorkflowStep } from '../../_lib/delegations';
 
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -11,12 +12,10 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
 
   const { memoId } = req.query as { memoId: string };
 
-  const step = await prisma.workflowStep.findFirst({
-    where: { memoId, userId: ctx.userId, status: 'pending' },
-    include: { memo: true },
-  });
+  const found = await findPendingWorkflowStep(memoId, ctx.userId);
+  if (!found) return res.status(404).json({ error: 'No pending workflow step found' });
 
-  if (!step) return res.status(404).json({ error: 'No pending workflow step found' });
+  const { step } = found;
   if (step.memo.organizationId !== ctx.organizationId) return res.status(403).json({ error: 'Forbidden' });
 
   const memo = step.memo;
@@ -42,6 +41,7 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
         type: 'memo_assigned',
         message: `Memo ${memo.memoNumber} forwarded to you`,
         memoNumber: memo.memoNumber,
+        memoId,
       },
     });
   } else {

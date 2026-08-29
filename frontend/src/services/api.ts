@@ -1,38 +1,48 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
-import { supabase } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+const REQUEST_TIMEOUT_MS = 28_000;
+
+const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/org-lookup'];
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
-// Add token to requests — uses Supabase session token
-api.interceptors.request.use(async (config) => {
+function isPublicAuthRequest(url?: string) {
+  if (!url) return false;
+  return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
+}
+
+// Add token to requests — skip public auth endpoints
+api.interceptors.request.use((config) => {
+  if (isPublicAuthRequest(config.url)) return config;
   const { token } = useAuthStore.getState();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    // Fallback: try to get session from Supabase
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) {
-      config.headers.Authorization = `Bearer ${data.session.access_token}`;
-    }
   }
   return config;
 });
 
-// Handle 401 responses
+// Handle 401 responses — never hard-redirect during login/register
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url as string | undefined;
+    if (status === 401 && !isPublicAuthRequest(requestUrl)) {
+      const onAuthPage = /^\/(login|register|forgot-password|reset-password)(\/|$)/.test(
+        window.location.pathname,
+      );
       useAuthStore.getState().clearAuth();
-      window.location.href = '/login';
+      if (!onAuthPage) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   },
@@ -41,8 +51,10 @@ api.interceptors.response.use(
 // Auth endpoints
 export const authAPI = {
   register: (data: {
-    organizationName: string;
-    organizationSlug: string;
+    signupType: 'new_org' | 'join_manager' | 'join_employee';
+    organizationName?: string;
+    organizationSlug?: string;
+    orgSlug?: string;
     email: string;
     password: string;
     name: string;
@@ -53,21 +65,34 @@ export const authAPI = {
 
   me: () => api.get('/auth/me'),
 
+  lookupOrg: (slug: string) => api.get('/auth/org-lookup', { params: { slug } }),
+
   logout: () => {
     useAuthStore.getState().clearAuth();
   },
 };
 
+export const delegationsAPI = {
+  list: () => api.get('/delegations'),
+  create: (data: { delegateId: string; startDate: string; endDate: string; reason?: string }) =>
+    api.post('/delegations', data),
+  cancel: (id: string) => api.delete(`/delegations?id=${id}`),
+};
+
 // Memos endpoints
 export const memosAPI = {
-  list: (type: 'inbox' | 'sent' = 'inbox') =>
-    api.get(`/memos?type=${type}`),
+  list: (type: 'inbox' | 'sent' = 'inbox', filters?: { priority?: string; status?: string; sort?: string }) =>
+    api.get('/memos', { params: { type, ...filters } }),
 
   get: (id: string) => api.get(`/memos/${id}`),
 
   create: (data: any) => api.post('/memos', data),
 
   update: (id: string, data: any) => api.put(`/memos/${id}`, data),
+
+  delete: (id: string) => api.delete(`/memos/${id}`),
+
+  cancel: (id: string) => api.post(`/memos/${id}/cancel`),
 
   submit: (id: string, workflowUserIds: string[]) =>
     api.post(`/memos/${id}/submit`, { workflowUserIds }),
@@ -98,8 +123,28 @@ export const commentsAPI = {
 };
 
 // Attachments endpoints
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_MIME = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+
 export const attachmentsAPI = {
   upload: (memoId: string, file: File) => {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      return Promise.reject(new Error('File must be 10 MB or smaller'));
+    }
+    if (!ALLOWED_ATTACHMENT_MIME.has(file.type)) {
+      return Promise.reject(new Error('File type not allowed. Use PDF, images, Office docs, or plain text.'));
+    }
     return new Promise<any>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -124,9 +169,11 @@ export const attachmentsAPI = {
 
 // Notifications endpoints
 export const notificationsAPI = {
-  list: () => api.get('/notifications'),
+  list: (sync = false) => api.get('/notifications', { params: sync ? { sync: '1' } : {} }),
 
   markAsRead: (id: string) => api.post(`/notifications/${id}/read`),
+
+  markAllRead: () => api.post('/notifications'),
 };
 
 // Admin endpoints
@@ -148,18 +195,78 @@ export const adminAPI = {
   createCategory: (data: any) => api.post('/admin/categories', data),
 
   getDashboard: () => api.get('/admin/dashboard'),
+
+  updateOrganization: (data: any) => api.put('/admin/organization', data),
+
+  updateDepartment: (id: string, data: any) => api.put(`/admin/departments?id=${id}`, data),
+
+  updateCategory: (id: string, data: any) => api.put(`/admin/categories?id=${id}`, data),
+
+  getAuditLogs: () => api.get('/admin/audit-logs'),
+
+  listTemplates: () => api.get('/admin/templates'),
+
+  createTemplate: (data: any) => api.post('/admin/templates', data),
+
+  updateTemplate: (id: string, data: any) => api.put(`/admin/templates?id=${id}`, data),
+
+  deleteTemplate: (id: string) => api.delete(`/admin/templates?id=${id}`),
 };
 
-// Profile / password change
+// Profile
 export const profileAPI = {
-  changePassword: (newPassword: string) =>
-    api.post('/auth/change-password', { newPassword }),
+  uploadAvatar: (fileData: string, mimeType: string) =>
+    api.put('/profile', { action: 'avatar', fileData, mimeType }),
+
+  requestOtp: (purpose: 'change_email' | 'change_password', data?: { newEmail?: string; newPassword?: string }) =>
+    api.post('/profile', { action: 'request-otp', purpose, ...data }),
+
+  verifyOtp: (purpose: 'change_email' | 'change_password', code: string) =>
+    api.post('/profile', { action: 'verify-otp', purpose, code }),
+
+  updateProfile: (data: { name?: string; designation?: string }) =>
+    api.put('/profile', { action: 'profile', ...data }),
+};
+
+// Messages
+export const messagesAPI = {
+  list: () => api.get('/messages'),
+  thread: (peerId: string) => api.get('/messages', { params: { peerId } }),
+  send: (recipientId: string, body: string) => api.post('/messages', { recipientId, body }),
+};
+
+// Join requests
+export const joinRequestsAPI = {
+  list: () => api.get('/join-requests'),
+  approve: (requestId: string) => api.post('/join-requests', { action: 'approve', requestId }),
+  reject: (requestId: string, reason?: string) =>
+    api.post('/join-requests', { action: 'reject', requestId, reason }),
+};
+
+// Platform admin
+export const platformAPI = {
+  listOrganizations: () => api.get('/platform/organizations'),
+  getOrganization: (orgId: string) => api.get('/platform/organizations', { params: { orgId } }),
+  ban: (targetType: 'organization' | 'user' | 'memo', targetId: string) =>
+    api.post('/platform/ban', { targetType, targetId, action: 'ban' }),
+  unban: (targetType: 'organization' | 'user' | 'memo', targetId: string) =>
+    api.post('/platform/ban', { targetType, targetId, action: 'unban' }),
+};
+
+// Memo versions
+export const memoVersionsAPI = {
+  list: (memoId: string) => api.get(`/memos/${memoId}/versions`),
 };
 
 // Search endpoints
 export const searchAPI = {
   search: (q: string, filters?: any) =>
     api.get('/search', { params: { q, ...filters } }),
+};
+
+// Dashboard — single combined endpoint (replaces 2-3 separate calls)
+export const dashboardAPI = {
+  getSummary: () => api.get('/dashboard/summary'),
 };
 
 export default api;

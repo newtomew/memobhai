@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAuth } from '../../_lib/auth';
 import { prisma } from '../../_lib/prisma';
 import { apiHandler } from '../../_lib/handler';
+import { findPendingWorkflowStep } from '../../_lib/delegations';
 
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -14,12 +15,10 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
 
   if (!comment) return res.status(400).json({ error: 'Comment is required for rejection' });
 
-  const step = await prisma.workflowStep.findFirst({
-    where: { memoId, userId: ctx.userId, status: 'pending' },
-    include: { memo: true },
-  });
+  const found = await findPendingWorkflowStep(memoId, ctx.userId);
+  if (!found) return res.status(404).json({ error: 'No pending workflow step found' });
 
-  if (!step) return res.status(404).json({ error: 'No pending workflow step found' });
+  const { step, actingAsDelegate } = found;
   if (step.memo.organizationId !== ctx.organizationId) return res.status(403).json({ error: 'Forbidden' });
 
   const memo = step.memo;
@@ -38,12 +37,22 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     data: { status: 'rejected', completedAt: new Date() },
   });
 
+  await prisma.comment.create({
+    data: {
+      memoId,
+      authorId: ctx.userId,
+      text: actingAsDelegate ? `[Delegated rejection] ${comment}` : comment,
+      type: 'rejection',
+    },
+  });
+
   await prisma.notification.create({
     data: {
       userId: memo.authorId,
       type: 'memo_rejected',
       message: `Memo ${memo.memoNumber} was rejected: ${comment}`,
       memoNumber: memo.memoNumber,
+      memoId,
     },
   });
 

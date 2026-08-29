@@ -3,14 +3,15 @@ import { adminAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
 import { Plus, Settings } from 'lucide-react';
 import clsx from 'clsx';
+import { JoinRequestsTab, TemplatesTab, AuditTab, OrgSettingsTab } from './admin/AdminExtendedTabs';
 
-type Tab = 'users' | 'departments' | 'categories' | 'reports';
+type Tab = 'users' | 'departments' | 'categories' | 'reports' | 'join-requests' | 'templates' | 'audit' | 'organization';
 
 export default function AdminPage() {
-  const { isAdmin } = useAuthStore();
+  const { isAdmin, isPlatformAdmin } = useAuthStore();
   const [tab, setTab] = useState<Tab>('users');
 
-  if (!isAdmin()) {
+  if (!isAdmin() && !isPlatformAdmin()) {
     return (
       <div className="bg-red-50 text-red-500 px-5 py-4 rounded-3xl text-sm">
         You do not have admin access.
@@ -31,7 +32,7 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
-        {(['users', 'departments', 'categories', 'reports'] as Tab[]).map((t) => (
+        {(['users', 'departments', 'categories', 'templates', 'audit', 'organization', 'join-requests', 'reports'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -48,6 +49,10 @@ export default function AdminPage() {
       {tab === 'users' && <UsersTab />}
       {tab === 'departments' && <DepartmentsTab />}
       {tab === 'categories' && <CategoriesTab />}
+      {tab === 'templates' && <TemplatesTab />}
+      {tab === 'audit' && <AuditTab />}
+      {tab === 'organization' && <OrgSettingsTab />}
+      {tab === 'join-requests' && <JoinRequestsTab />}
       {tab === 'reports' && <ReportsTab />}
     </div>
   );
@@ -227,7 +232,7 @@ function DepartmentsTab() {
           <table className="w-full text-sm text-left">
             <thead className="bg-surface-muted">
               <tr>
-                {['Name', 'Description', 'Users', 'Memos', 'Status'].map(h => (
+                {['Name', 'Description', 'Users', 'Memos', 'Status', 'Actions'].map(h => (
                   <th key={h} className="px-5 py-3 font-medium text-gray-400 text-xs uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -241,6 +246,11 @@ function DepartmentsTab() {
                   <td className="px-5 py-3.5 text-gray-500">{d._count?.memos ?? 0}</td>
                   <td className="px-5 py-3.5">
                     <span className={d.status === 'active' ? 'badge-success' : 'badge-error'}>{d.status}</span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <button onClick={async () => { await adminAPI.updateDepartment(d.id, { status: d.status === 'active' ? 'inactive' : 'active' }); load(); }} className="text-xs text-gray-500 hover:text-charcoal">
+                      {d.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -307,10 +317,15 @@ function CategoriesTab() {
       {loading ? <p className="text-gray-400 text-sm">Loading...</p> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {categories.map((c) => (
-            <div key={c.id} className="card !p-4">
-              <p className="font-semibold text-charcoal">{c.name}</p>
-              {c.description && <p className="text-sm text-gray-400 mt-1">{c.description}</p>}
-              <span className={`mt-3 inline-block ${c.status === 'active' ? 'badge-success' : 'badge-error'}`}>{c.status}</span>
+            <div key={c.id} className="card !p-4 flex justify-between">
+              <div>
+                <p className="font-semibold text-charcoal">{c.name}</p>
+                {c.description && <p className="text-sm text-gray-400 mt-1">{c.description}</p>}
+                <span className={`mt-3 inline-block ${c.status === 'active' ? 'badge-success' : 'badge-error'}`}>{c.status}</span>
+              </div>
+              <button onClick={async () => { await adminAPI.updateCategory(c.id, { status: c.status === 'active' ? 'inactive' : 'active' }); load(); }} className="text-xs text-gray-500 self-start">
+                {c.status === 'active' ? 'Deactivate' : 'Activate'}
+              </button>
             </div>
           ))}
         </div>
@@ -341,12 +356,15 @@ function ReportsTab() {
     { label: 'Pending', value: stats?.pendingMemos ?? 0, dark: true },
     { label: 'Approved', value: stats?.approvedMemos ?? 0, dark: false },
     { label: 'Rejected', value: stats?.rejectedMemos ?? 0, dark: true },
+    { label: 'Urgent Open', value: stats?.urgentMemos ?? 0, dark: true },
+    { label: 'Avg Completion (hrs)', value: stats?.avgCompletionHours ?? '—', dark: false },
+    { label: 'Rejection Rate %', value: stats?.rejectionRate ?? 0, dark: false },
   ];
 
   return (
     <div>
       <h2 className="text-lg font-bold text-charcoal mb-4">Organization Reports</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         {cards.map((c) => (
           <div key={c.label} className={c.dark ? 'stat-card-dark' : 'stat-card-light'}>
             <p className="text-sm opacity-70 mb-1">{c.label}</p>
@@ -354,6 +372,46 @@ function ReportsTab() {
           </div>
         ))}
       </div>
+      {stats?.memosByDepartment?.length > 0 && (
+        <div className="card mb-4">
+          <h3 className="font-semibold mb-3">Memos by Department</h3>
+          {stats.memosByDepartment.map((d: any) => {
+            const max = Math.max(...stats.memosByDepartment.map((x: any) => x.count), 1);
+            return (
+              <div key={d.department} className="mb-2">
+                <div className="flex justify-between text-sm mb-1"><span>{d.department}</span><span className="font-medium">{d.count}</span></div>
+                <div className="h-2 bg-surface-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-accent rounded-full" style={{ width: `${(d.count / max) * 100}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {stats?.statusBreakdown?.length > 0 && (
+        <div className="card mb-4">
+          <h3 className="font-semibold mb-3">Status Breakdown</h3>
+          {stats.statusBreakdown.map((s: any) => {
+            const max = Math.max(...stats.statusBreakdown.map((x: any) => x.count), 1);
+            return (
+              <div key={s.status} className="mb-2">
+                <div className="flex justify-between text-sm mb-1 capitalize"><span>{s.status.replace(/_/g, ' ')}</span><span className="font-medium">{s.count}</span></div>
+                <div className="h-2 bg-surface-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-charcoal rounded-full" style={{ width: `${(s.count / max) * 100}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {stats?.memosByCategory?.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold mb-3">Memos by Category</h3>
+          {stats.memosByCategory.map((c: any) => (
+            <div key={c.category} className="flex justify-between text-sm py-1"><span>{c.category}</span><span className="font-medium">{c.count}</span></div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

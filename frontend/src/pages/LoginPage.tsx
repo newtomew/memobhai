@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authAPI } from '../services/api';
@@ -9,20 +9,41 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
+  const { setAuth, clearAuth } = useAuthStore();
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowHint(false);
+      return;
+    }
+    const id = window.setTimeout(() => setSlowHint(true), 4000);
+    return () => window.clearTimeout(id);
+  }, [loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSlowHint(false);
+    // Drop stale session so bootstrap / interceptors cannot race this login
+    clearAuth();
     try {
       const response = await authAPI.login(email, password);
-      const { token, user, organization } = response.data;
+      const { token, user, organization, pending } = response.data;
       setAuth(token, user, organization);
-      navigate('/dashboard');
+      if (pending || user?.status === 'pending' || organization?.status === 'pending') {
+        navigate('/pending', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      if (err.code === 'ECONNABORTED') {
+        setError('Server is waking up — please try again in a few seconds.');
+      } else {
+        setError(err.response?.data?.error || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -48,6 +69,14 @@ export default function LoginPage() {
         <button type="submit" disabled={loading} className="btn-primary w-full py-3">
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
+        {slowHint && loading && (
+          <p className="text-center text-xs text-gray-400">
+            Server may be waking from sleep — this can take up to 30 seconds on first load.
+          </p>
+        )}
+        <p className="text-center text-sm">
+          <Link to="/forgot-password" className="text-accent-dark font-medium hover:underline">Forgot password?</Link>
+        </p>
       </form>
 
       <p className="text-center text-gray-400 text-sm mt-6">

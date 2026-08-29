@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolveAuth } from '../../_lib/auth';
 import { prisma } from '../../_lib/prisma';
 import { apiHandler } from '../../_lib/handler';
+import { findPendingWorkflowStep } from '../../_lib/delegations';
 
 export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -12,18 +13,13 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   const { memoId } = req.query as { memoId: string };
   const { comment } = req.body;
 
-  // Find the current pending step for this user
-  const step = await prisma.workflowStep.findFirst({
-    where: { memoId, userId: ctx.userId, status: 'pending' },
-    include: { memo: true },
-  });
+  const found = await findPendingWorkflowStep(memoId, ctx.userId);
+  if (!found) return res.status(404).json({ error: 'No pending workflow step found for you on this memo' });
 
-  if (!step) return res.status(404).json({ error: 'No pending workflow step found for you on this memo' });
-
+  const { step, actingAsDelegate } = found;
   const memo = step.memo;
   if (memo.organizationId !== ctx.organizationId) return res.status(403).json({ error: 'Forbidden' });
 
-  // Create approval record
   await prisma.approval.create({
     data: {
       memoId,
@@ -34,33 +30,38 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
     },
   });
 
-  // Mark current step as completed
   await prisma.workflowStep.update({
     where: { id: step.id },
     data: { status: 'completed', action: 'approve', comment, completedAt: new Date() },
   });
 
-  // Find next step
+  if (comment?.trim()) {
+    await prisma.comment.create({
+      data: {
+        memoId,
+        authorId: ctx.userId,
+        text: actingAsDelegate ? `[Delegated approval] ${comment}` : comment,
+        type: 'approval',
+      },
+    });
+  }
+
   const nextStep = await prisma.workflowStep.findFirst({
     where: { memoId, position: step.position + 1, status: 'pending' },
   });
 
   if (nextStep) {
-    // Move to next reviewer
-    await prisma.memo.update({
-      where: { id: memoId },
-      data: { status: 'pending_review' },
-    });
+    await prisma.memo.update({ where: { id: memoId }, data: { status: 'pending_review' } });
     await prisma.notification.create({
       data: {
         userId: nextStep.userId,
         type: 'memo_assigned',
         message: `Memo ${memo.memoNumber} requires your review`,
         memoNumber: memo.memoNumber,
+        memoId,
       },
     });
   } else {
-    // No more steps — mark as approved
     await prisma.memo.update({
       where: { id: memoId },
       data: { status: 'approved', completedAt: new Date() },
@@ -71,6 +72,7 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
         type: 'memo_approved',
         message: `Memo ${memo.memoNumber} has been approved`,
         memoNumber: memo.memoNumber,
+        memoId,
       },
     });
   }
@@ -82,7 +84,9 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
       event: 'memo_approved',
       entityType: 'memo',
       entityId: memoId,
-      description: `Memo ${memo.memoNumber} approved at step ${step.position}`,
+      description: actingAsDelegate
+        ? `Memo ${memo.memoNumber} approved on behalf of ${step.userId} (delegation)`
+        : `Memo ${memo.memoNumber} approved at step ${step.position}`,
     },
   });
 

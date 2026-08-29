@@ -15,6 +15,7 @@ model Organization {
   slug      String     @unique
   logo      String?
   contactEmail String?
+  status    String     @default("pending") // pending, active, banned
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -24,6 +25,8 @@ model Organization {
   categories   MemoCategory[]
   templates    WorkflowTemplate[]
   auditLogs    AuditLog[]
+  joinRequests JoinRequest[]
+  messages     DirectMessage[]
 
   @@index([slug])
   @@map("organizations")
@@ -60,8 +63,10 @@ model User {
   email     String
   name      String
   designation String?
-  role      String     @default("user") // user, admin
-  status    String     @default("active") // active, inactive
+  avatarUrl String?
+  role      String     @default("user") // superadmin, admin (manager), user (employee)
+  status    String     @default("active") // active, inactive, pending, banned
+  lastLoginAt DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -72,6 +77,10 @@ model User {
   delegations Delegation[] @relation("delegatingUser")
   delegatedTo Delegation[] @relation("delegate")
   notifications Notification[]
+  sentMessages DirectMessage[] @relation("sentMessages")
+  receivedMessages DirectMessage[] @relation("receivedMessages")
+  joinRequestsReviewed JoinRequest[] @relation("reviewedJoinRequests")
+  otpVerifications OtpVerification[]
 
   @@unique([organizationId, email])
   @@index([organizationId])
@@ -116,6 +125,7 @@ model Memo {
   body      String     // Rich text content
   priority  String     @default("normal") // normal, high, urgent
   status    String     @default("draft") // draft, submitted, pending_review, pending_approval, changes_requested, rejected, approved, cancelled
+  isBlocked Boolean    @default(false)
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
@@ -275,9 +285,10 @@ model Notification {
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      String     // memo_assigned, memo_approved, memo_rejected, changes_requested, comment_added, memo_resubmitted, workflow_completed
+  type      String     // memo_assigned, memo_approved, memo_rejected, changes_requested, comment_added, memo_resubmitted, workflow_completed, since_login_new_memo, since_login_approved, since_login_rejected, overdue_approval
   message   String
   memoNumber String?
+  memoId    String?
   isRead    Boolean    @default(false)
   createdAt DateTime   @default(now())
 
@@ -304,4 +315,65 @@ model AuditLog {
   @@index([event])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// Direct messages between org members
+model DirectMessage {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation("sentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId    String
+  recipient      User     @relation("receivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  body           String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([senderId, recipientId])
+  @@index([recipientId, isRead])
+  @@map("direct_messages")
+}
+
+// Signup / join approval requests
+model JoinRequest {
+  id               String   @id @default(uuid())
+  requestType      String   // new_org, join_org
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationName String?
+  organizationSlug String?
+  email            String
+  name             String
+  passwordHash     String   // scrypt hash — used when approved
+  requestedRole    String   // admin (manager), user (employee), founder
+  status           String   @default("pending") // pending, approved, rejected
+  reviewedById     String?
+  reviewedBy       User?    @relation("reviewedJoinRequests", fields: [reviewedById], references: [id])
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime @default(now())
+
+  @@index([status])
+  @@index([organizationId])
+  @@index([email])
+  @@map("join_requests")
+}
+
+// OTP for email / password changes
+model OtpVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  codeHash  String
+  purpose   String   // change_email, change_password
+  payload   String?  // JSON: { newEmail } for change_email
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@map("otp_verifications")
 }

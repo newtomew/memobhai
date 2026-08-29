@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { adminAPI, memosAPI, attachmentsAPI } from '../services/api';
 import { useAuthStore } from '../store/auth';
 import { X, Plus, Upload, ArrowLeft, ArrowRight } from 'lucide-react';
+import { lazy, Suspense } from 'react';
+
+const RichTextEditor = lazy(() => import('../components/RichTextEditor'));
 
 type Step = 'details' | 'workflow';
 
@@ -22,16 +25,19 @@ export default function MemoCreatePage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [departments, setDepartments] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [draftId, setDraftId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([adminAPI.getDepartments(), adminAPI.getCategories(), adminAPI.listUsers()])
-      .then(([deptRes, catRes, usersRes]) => {
+    Promise.all([adminAPI.getDepartments(), adminAPI.getCategories(), adminAPI.listUsers(), adminAPI.listTemplates()])
+      .then(([deptRes, catRes, usersRes, tplRes]) => {
         setDepartments(deptRes.data.departments || []);
         setCategories(catRes.data.categories || []);
         setOrgUsers(usersRes.data.users || []);
+        setTemplates(tplRes.data.templates || []);
       })
       .catch(() => setError('Failed to load form data'));
   }, []);
@@ -47,6 +53,26 @@ export default function MemoCreatePage() {
 
   const removeWorkflowUser = (id: string) => {
     setWorkflowUsers((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  const applyTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl?.positions?.length) return;
+    const matched: any[] = [];
+    for (const roleLabel of tpl.positions as string[]) {
+      const match = orgUsers.find(
+        (u) =>
+          u.id !== user?.id &&
+          !matched.find((m) => m.id === u.id) &&
+          (u.designation?.toLowerCase().includes(roleLabel.toLowerCase()) ||
+            u.role === 'admin' ||
+            u.name.toLowerCase().includes(roleLabel.toLowerCase().split(' ')[0])),
+      );
+      if (match) matched.push(match);
+    }
+    if (matched.length > 0) setWorkflowUsers(matched);
   };
 
   const saveDraft = async () => {
@@ -177,7 +203,9 @@ export default function MemoCreatePage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-500 mb-1.5">Body *</label>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} className="input-field h-64 resize-none" placeholder="Write the memo content here..." />
+            <Suspense fallback={<div className="input-field h-48 animate-pulse bg-surface-muted rounded-3xl" />}>
+              <RichTextEditor value={body} onChange={setBody} placeholder="Write the memo content here..." />
+            </Suspense>
           </div>
 
           <div>
@@ -217,6 +245,27 @@ export default function MemoCreatePage() {
             <h2 className="text-lg font-bold text-charcoal mb-1">Define Approval Workflow</h2>
             <p className="text-sm text-gray-400">Add participants in order. The memo moves sequentially through each person.</p>
           </div>
+
+          {templates.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1.5">Workflow Template (optional)</label>
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => applyTemplate(e.target.value)}
+                className="select-field"
+              >
+                <option value="">Custom workflow</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.positions?.length || 0} steps)</option>
+                ))}
+              </select>
+              {selectedTemplateId && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Template roles: {(templates.find((t) => t.id === selectedTemplateId)?.positions || []).join(' → ')}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2">
             <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="select-field flex-1">

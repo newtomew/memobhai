@@ -10,7 +10,11 @@ import {
   Search,
   User,
   Settings,
+  Bell,
   LogOut,
+  MessageCircle,
+  Shield,
+  UserCheck,
 } from 'lucide-react';
 
 const menuItems = [
@@ -20,22 +24,28 @@ const menuItems = [
   { icon: FilePlus, label: 'Create', href: '/memos/create', admin: false },
   { icon: CheckCircle, label: 'Completed', href: '/completed', admin: false },
   { icon: Search, label: 'Search', href: '/search', admin: false },
+  { icon: MessageCircle, label: 'Messages', href: '/messages', admin: false },
+  { icon: UserCheck, label: 'Delegation', href: '/delegation', admin: false },
+  { icon: Bell, label: 'Notifications', href: '/notifications', admin: false },
   { icon: User, label: 'Profile', href: '/profile', admin: false },
-  { icon: Settings, label: 'Admin', href: '/admin', admin: true },
+  { icon: Settings, label: 'Admin Panel', href: '/admin', admin: true },
+  { icon: Shield, label: 'Platform', href: '/platform', platform: true },
 ];
 
 export default function Sidebar() {
-  const { isAdmin, clearAuth } = useAuthStore();
+  const { isAdmin, isPlatformAdmin, clearAuth } = useAuthStore();
   const location = useLocation();
-  const filteredItems = menuItems.filter((item) => !item.admin || isAdmin());
+  const filteredItems = menuItems.filter((item) => {
+    if ((item as any).platform) return isPlatformAdmin();
+    if (item.admin) return isAdmin();
+    return true;
+  });
 
   return (
     <aside className="w-[72px] flex-shrink-0 bg-charcoal rounded-4xl flex flex-col items-center py-6 shadow-sidebar">
       {/* Logo */}
       <Link to="/dashboard" className="mb-8 group">
-        <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform">
-          <span className="text-charcoal font-extrabold text-lg leading-none">M</span>
-        </div>
+        <img src="/memobhai-logo.svg" alt="MemoBhai" className="w-10 h-10 rounded-2xl group-hover:scale-105 transition-transform" />
       </Link>
 
       {/* Nav icons */}

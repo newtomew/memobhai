@@ -8,37 +8,44 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
   if (!ctx) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
-    const { type = 'inbox' } = req.query as { type?: string };
+    const { type = 'inbox', priority, status, sort = 'newest' } = req.query as {
+      type?: string;
+      priority?: string;
+      status?: string;
+      sort?: string;
+    };
     const orgId = ctx.organizationId;
     const userId = ctx.userId;
 
     let memos;
 
     if (type === 'sent') {
-      // Memos created by the user
-      memos = await prisma.memo.findMany({
-        where: { organizationId: orgId, authorId: userId },
-        include: {
-          department: { select: { name: true } },
-          workflowSteps: { select: { id: true, status: true, userId: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-    } else {
-      // Inbox: memos where user has a pending workflow step
       memos = await prisma.memo.findMany({
         where: {
           organizationId: orgId,
-          workflowSteps: {
-            some: { userId, status: 'pending' },
-          },
-          status: { in: ['submitted', 'pending_review', 'pending_approval'] },
+          authorId: userId,
+          ...(priority && { priority }),
+          ...(status && { status }),
+        },
+        include: {
+          department: { select: { name: true } },
+          workflowSteps: { select: { id: true, status: true, userId: true, user: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: sort === 'oldest' ? 'asc' : 'desc' },
+      });
+    } else {
+      memos = await prisma.memo.findMany({
+        where: {
+          organizationId: orgId,
+          workflowSteps: { some: { userId, status: 'pending' } },
+          status: status ? status : { in: ['submitted', 'pending_review', 'pending_approval'] },
+          ...(priority && { priority }),
         },
         include: {
           author: { select: { name: true, email: true } },
           department: { select: { name: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: sort === 'oldest' ? 'asc' : 'desc' },
       });
     }
 

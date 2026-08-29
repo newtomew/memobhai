@@ -8,24 +8,42 @@ export default function InboxPage() {
   const [memos, setMemos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [priority, setPriority] = useState('');
+  const [sort, setSort] = useState('newest');
 
-  useEffect(() => {
-    memosAPI
-      .list('inbox')
+  const load = () => {
+    setLoading(true);
+    memosAPI.list('inbox', { ...(priority && { priority }), sort })
       .then((res) => setMemos(res.data.memos || []))
       .catch((err) => setError(err.response?.data?.error || 'Failed to load inbox'))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, [priority, sort]);
 
   return (
     <div className="slide-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-accent/20 rounded-2xl flex items-center justify-center">
-          <Inbox size={20} className="text-accent-dark" />
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-accent/20 rounded-2xl flex items-center justify-center">
+            <Inbox size={20} className="text-accent-dark" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-charcoal">Inbox</h1>
+            <p className="text-sm text-gray-400">{memos.length} memo{memos.length !== 1 ? 's' : ''} awaiting action</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-charcoal">Inbox</h1>
-          <p className="text-sm text-gray-400">{memos.length} memo{memos.length !== 1 ? 's' : ''} awaiting action</p>
+        <div className="flex gap-2">
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="select-field text-sm py-2">
+            <option value="">All priorities</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="select-field text-sm py-2">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
         </div>
       </div>
 
@@ -38,28 +56,17 @@ export default function InboxPage() {
         {memos.length > 0 && (
           <>
             <div className="hidden md:grid grid-cols-[1fr_2fr_1fr_1fr_1fr] gap-4 px-2 pb-3 text-xs font-medium text-gray-400 uppercase tracking-wide">
-              <span>Number</span>
-              <span>Subject</span>
-              <span>From</span>
-              <span>Priority</span>
-              <span>Status</span>
+              <span>Number</span><span>Subject</span><span>From</span><span>Priority</span><span>Status</span>
             </div>
             <ul className="space-y-1">
               {memos.map((memo) => (
                 <li key={memo.id}>
                   <Link to={`/memos/${memo.id}`} className="table-row grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr_1fr_1fr] gap-2 md:gap-4">
                     <span className="text-sm font-mono text-accent-dark font-medium self-center">{memo.memoNumber}</span>
-                    <div className="flex items-center gap-3 min-w-0 self-center">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${avatarColor(memo.author?.name)}`}>
-                        {memo.author?.name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                      <span className="text-sm font-medium text-charcoal truncate">{memo.subject}</span>
-                    </div>
+                    <span className="text-sm font-medium text-charcoal truncate self-center">{memo.subject}</span>
                     <span className="text-sm text-gray-500 self-center hidden md:block">{memo.author?.name || '—'}</span>
                     <span className="text-sm capitalize text-gray-500 self-center hidden md:block">{memo.priority}</span>
-                    <span className={`self-center hidden md:inline-flex ${statusBadgeClass[memo.status] || 'badge-neutral'}`}>
-                      {statusLabel(memo.status)}
-                    </span>
+                    <span className={`self-center hidden md:inline-flex ${statusBadgeClass[memo.status] || 'badge-neutral'}`}>{statusLabel(memo.status)}</span>
                   </Link>
                 </li>
               ))}
