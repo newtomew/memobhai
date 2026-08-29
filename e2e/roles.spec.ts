@@ -21,6 +21,16 @@ async function loginViaApi(page, request, email: string, password: string) {
 }
 
 test.describe('Role smoke tests', () => {
+  test('Login form reaches dashboard without hanging', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('/login');
+    await page.locator('input[type="email"]').fill('admin@demo.com');
+    await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
+    await expect(page.getByText(/Manager Console|Overview|Dashboard/i).first()).toBeVisible({ timeout: 15_000 });
+  });
+
   test('Employee sees dashboard, not admin panel', async ({ page, request }) => {
     await loginViaApi(page, request, 'employee@demo.com', DEMO_PASSWORD);
     await page.goto('/dashboard');

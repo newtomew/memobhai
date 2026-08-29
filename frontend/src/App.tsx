@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/auth';
 import { isSupabaseConfigured } from './lib/supabase';
 import AuthBootstrap from './components/AuthBootstrap';
@@ -43,9 +43,12 @@ function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
-export default function App() {
-  const { token } = useAuthStore();
+function HomeRoute() {
+  const token = useAuthStore((s) => s.token);
+  return token ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+}
 
+export default function App() {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas-pattern p-6">
@@ -67,55 +70,53 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <AuthBootstrap>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/pending" element={<PendingRoute />} />
+    <AuthBootstrap>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/pending" element={<PendingRoute />} />
 
-          <Route path="/articles" element={<ArticlesListPage />} />
-          <Route path="/articles/:slug" element={<ArticlePage />} />
-          <Route path="/billing/success" element={<BillingSuccessPage />} />
-          <Route path="/billing/fail" element={<BillingFailPage />} />
-          <Route path="/billing/cancel" element={<BillingCancelPage />} />
+        <Route path="/articles" element={<ArticlesListPage />} />
+        <Route path="/articles/:slug" element={<ArticlePage />} />
+        <Route path="/billing/success" element={<BillingSuccessPage />} />
+        <Route path="/billing/fail" element={<BillingFailPage />} />
+        <Route path="/billing/cancel" element={<BillingCancelPage />} />
 
-          <Route element={<AuthenticatedRoute />}>
-            <Route path="/upgrade" element={<Lazy><UpgradePage /></Lazy>} />
+        <Route element={<AuthenticatedRoute />}>
+          <Route path="/upgrade" element={<Lazy><UpgradePage /></Lazy>} />
+        </Route>
+
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Lazy><DashboardPage /></Lazy>} />
+            <Route path="/inbox" element={<Lazy><InboxPage /></Lazy>} />
+            <Route path="/my-memos" element={<Lazy><MyMemosPage /></Lazy>} />
+            <Route path="/completed" element={<Lazy><CompletedMemosPage /></Lazy>} />
+            <Route path="/search" element={<Lazy><SearchPage /></Lazy>} />
+            <Route path="/notifications" element={<Lazy><NotificationsPage /></Lazy>} />
+            <Route path="/messages" element={<Lazy><MessagesPage /></Lazy>} />
+            <Route path="/profile" element={<Lazy><ProfilePage /></Lazy>} />
+            <Route path="/delegation" element={<Lazy><DelegationPage /></Lazy>} />
+            <Route path="/memos/create" element={<Lazy><MemoCreatePage /></Lazy>} />
+            <Route path="/memos/:id" element={<Lazy><MemoDetailPage /></Lazy>} />
           </Route>
-
-          <Route element={<ProtectedRoute />}>
+          <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
-              <Route path="/dashboard" element={<Lazy><DashboardPage /></Lazy>} />
-              <Route path="/inbox" element={<Lazy><InboxPage /></Lazy>} />
-              <Route path="/my-memos" element={<Lazy><MyMemosPage /></Lazy>} />
-              <Route path="/completed" element={<Lazy><CompletedMemosPage /></Lazy>} />
-              <Route path="/search" element={<Lazy><SearchPage /></Lazy>} />
-              <Route path="/notifications" element={<Lazy><NotificationsPage /></Lazy>} />
-              <Route path="/messages" element={<Lazy><MessagesPage /></Lazy>} />
-              <Route path="/profile" element={<Lazy><ProfilePage /></Lazy>} />
-              <Route path="/delegation" element={<Lazy><DelegationPage /></Lazy>} />
-              <Route path="/memos/create" element={<Lazy><MemoCreatePage /></Lazy>} />
-              <Route path="/memos/:id" element={<Lazy><MemoDetailPage /></Lazy>} />
-            </Route>
-            <Route element={<AdminRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
-                <Route path="/billing" element={<Lazy><BillingPage /></Lazy>} />
-              </Route>
-            </Route>
-            <Route element={<PlatformRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/platform" element={<Lazy><PlatformAdminPage /></Lazy>} />
-              </Route>
+              <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
+              <Route path="/billing" element={<Lazy><BillingPage /></Lazy>} />
             </Route>
           </Route>
+          <Route element={<PlatformRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/platform" element={<Lazy><PlatformAdminPage /></Lazy>} />
+            </Route>
+          </Route>
+        </Route>
 
-          <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-        </Routes>
-      </AuthBootstrap>
-    </BrowserRouter>
+        <Route path="/" element={<HomeRoute />} />
+      </Routes>
+    </AuthBootstrap>
   );
 }

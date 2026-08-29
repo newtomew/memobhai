@@ -52,6 +52,7 @@ export default apiHandler(async (req: VercelRequest, res: VercelResponse) => {
 
   res.json({
     token: data.session?.access_token,
+    refreshToken: data.session?.refresh_token ?? null,
     user: {
       id: user.id,
       name: user.name,

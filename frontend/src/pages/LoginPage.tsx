@@ -13,7 +13,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const { setAuth, clearAuth } = useAuthStore();
+  const { setAuth, clearLocalAuth } = useAuthStore();
 
   useEffect(() => {
     if (!loading) {
@@ -29,12 +29,13 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     setSlowHint(false);
-    // Drop stale session so bootstrap / interceptors cannot race this login
-    clearAuth();
+    // Drop stale session without async Supabase signOut (prevents post-login race)
+    clearLocalAuth();
+    sessionStorage.removeItem('memobhai_auth_refreshed');
     try {
       const response = await authAPI.login(email, password);
-      const { token, user, organization, pending } = response.data;
-      setAuth(token, user, organization);
+      const { token, user, organization, pending, refreshToken } = response.data;
+      setAuth(token, user, organization, refreshToken);
       const goingToUpgrade = redirectTo.startsWith('/upgrade');
       if (pending || user?.status === 'pending' || organization?.status === 'pending') {
         navigate(goingToUpgrade ? redirectTo : '/pending', { replace: true });

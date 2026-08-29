@@ -1,10 +1,12 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const REQUEST_TIMEOUT_MS = 28_000;
 
 const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/org-lookup'];
+
+type AuthTaggedConfig = InternalAxiosRequestConfig & { _authToken?: string | null };
 
 const api = axios.create({
   baseURL: API_URL,
@@ -25,6 +27,7 @@ api.interceptors.request.use((config) => {
   const { token } = useAuthStore.getState();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    (config as AuthTaggedConfig)._authToken = token;
   }
   return config;
 });
@@ -36,10 +39,17 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const requestUrl = error.config?.url as string | undefined;
     if (status === 401 && !isPublicAuthRequest(requestUrl)) {
+      const requestToken = (error.config as AuthTaggedConfig | undefined)?._authToken;
+      const currentToken = useAuthStore.getState().token;
+      // Ignore stale 401s from requests started before a newer login
+      if (requestToken && currentToken && requestToken !== currentToken) {
+        return Promise.reject(error);
+      }
+
       const onAuthPage = /^\/(login|register|forgot-password|reset-password)(\/|$)/.test(
         window.location.pathname,
       );
-      useAuthStore.getState().clearAuth();
+      useAuthStore.getState().clearLocalAuth();
       if (!onAuthPage) {
         window.location.href = '/login';
       }
